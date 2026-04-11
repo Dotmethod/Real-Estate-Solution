@@ -1,0 +1,1267 @@
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone } from 'lucide-react';
+import { formatPrice, cn } from '../lib/utils';
+import { motion } from 'motion/react';
+import ProfileSection from '../components/ProfileSection';
+import { supabase } from '../lib/supabase';
+
+interface UserProfile {
+  id: string;
+  full_name: string;
+  email?: string;
+  role: string;
+  subscription_plan: string;
+  status: string;
+  phone?: string;
+  address?: string;
+  avatar_url?: string;
+}
+
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  interval: 'month' | 'year';
+  features: string[];
+  limits: {
+    properties: number;
+    images_per_property: number;
+  };
+  created_at?: string;
+}
+
+export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') as 'users' | 'properties' | 'stats' | 'profile' | 'plans' || 'users';
+  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'stats' | 'profile' | 'plans'>(initialTab);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
+  
+  // Plan Management State
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [planForm, setPlanForm] = useState<Partial<SubscriptionPlan>>({
+    name: '',
+    price: 0,
+    interval: 'month',
+    features: [],
+    limits: { properties: 5, images_per_property: 5 }
+  });
+  const [newFeature, setNewFeature] = useState('');
+  
+  // Property Management State
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<any | null>(null);
+  const [propertyForm, setPropertyForm] = useState<any>({
+    title: '',
+    price: '',
+    location: '',
+    type: 'house',
+    description: '',
+    beds: '',
+    baths: '',
+    sqft: '',
+    images: [],
+    amenities: [] as string[]
+  });
+  const [isSubmittingProperty, setIsSubmittingProperty] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [customAmenity, setCustomAmenity] = useState('');
+  const [propertyStatusMessage, setPropertyStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/login');
+        return;
+      }
+
+      // Check the profiles table directly for the most accurate role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile?.role !== 'admin') {
+        navigate('/dashboard');
+      } else {
+        setUser(session.user);
+      }
+    };
+
+    checkAdmin();
+  }, [navigate]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'profile' || tab === 'users' || tab === 'properties' || tab === 'stats' || tab === 'plans') {
+      setActiveTab(tab as any);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    } else if (activeTab === 'properties') {
+      fetchProperties();
+    } else if (activeTab === 'plans') {
+      fetchPlans();
+    }
+  }, [activeTab]);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+      
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchProperties = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setProperties(data || []);
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateUserStatus = async (id: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setUsers(users.map(u => u.id === id ? { ...u, status } : u));
+    } catch (error) {
+      console.error('Error updating user status:', error);
+    }
+  };
+
+  const handleEditClick = (user: UserProfile) => {
+    setEditingUserId(user.id);
+    setEditForm({ 
+      role: user.role, 
+      subscription_plan: user.subscription_plan || 'New Comers',
+      status: user.status || 'pending'
+    });
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(editForm)
+        .eq('id', id);
+      
+      if (error) throw error;
+      setUsers(users.map(u => u.id === id ? { ...u, ...editForm } : u));
+      setEditingUserId(null);
+    } catch (error) {
+      console.error('Error saving user edits:', error);
+    }
+  };
+
+  const approveProperty = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ status: 'approved' })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setProperties(properties.map(p => p.id === id ? { ...p, status: 'approved' } : p));
+    } catch (error) {
+      console.error('Error approving property:', error);
+    }
+  };
+
+  const rejectProperty = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ status: 'rejected' })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setProperties(properties.map(p => p.id === id ? { ...p, status: 'rejected' } : p));
+    } catch (error) {
+      console.error('Error rejecting property:', error);
+    }
+  };
+
+  const deleteProperty = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this property? This action cannot be undone.')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      setProperties(properties.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('Error deleting property:', error);
+    }
+  };
+
+  const fetchPlans = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .order('price', { ascending: true });
+      
+      if (error) throw error;
+      setPlans(data || []);
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const savePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingPlan) {
+        const { error } = await supabase
+          .from('subscription_plans')
+          .update(planForm)
+          .eq('id', editingPlan.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('subscription_plans')
+          .insert([planForm]);
+        if (error) throw error;
+      }
+      
+      setShowPlanModal(false);
+      setEditingPlan(null);
+      setPlanForm({
+        name: '',
+        price: 0,
+        interval: 'month',
+        features: [],
+        limits: { properties: 5, images_per_property: 5 }
+      });
+      fetchPlans();
+    } catch (error) {
+      console.error('Error saving plan:', error);
+    }
+  };
+
+  const deletePlan = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this plan?')) return;
+    try {
+      const { error } = await supabase
+        .from('subscription_plans')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      fetchPlans();
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+    }
+  };
+
+  const addFeature = () => {
+    if (!newFeature.trim()) return;
+    setPlanForm({
+      ...planForm,
+      features: [...(planForm.features || []), newFeature.trim()]
+    });
+    setNewFeature('');
+  };
+
+  const removeFeature = (index: number) => {
+    setPlanForm({
+      ...planForm,
+      features: (planForm.features || []).filter((_, i) => i !== index)
+    });
+  };
+
+  // Property Management Functions
+  const handleEditProperty = (property: any) => {
+    setEditingProperty(property);
+    setPropertyForm({
+      title: property.title,
+      price: property.price.toString(),
+      location: property.location,
+      type: property.type,
+      description: property.description,
+      beds: property.beds.toString(),
+      baths: property.baths.toString(),
+      sqft: property.sqft.toString(),
+      images: property.images || [],
+      amenities: property.amenities || []
+    });
+    setSelectedFiles([]);
+    setPreviews([]);
+    setPropertyStatusMessage(null);
+    setShowPropertyModal(true);
+  };
+
+  const handlePropertyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    if (files.length === 0) return;
+
+    setSelectedFiles(prev => [...prev, ...files]);
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removeExistingImage = (index: number) => {
+    setPropertyForm({
+      ...propertyForm,
+      images: propertyForm.images.filter((_: any, i: number) => i !== index)
+    });
+  };
+
+  const removeNewImage = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => {
+      const newPreviews = prev.filter((_, i) => i !== index);
+      URL.revokeObjectURL(prev[index]);
+      return newPreviews;
+    });
+  };
+
+  const saveProperty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingProperty(true);
+    setPropertyStatusMessage(null);
+
+    try {
+      // 1. Upload new images if any
+      const newImageUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Math.random()}.${fileExt}`;
+          const filePath = `admin-uploads/${Date.now()}-${fileName}`;
+
+          const { error: uploadError, data: uploadData } = await supabase.storage
+            .from('property-images')
+            .upload(filePath, file);
+
+          if (uploadError) throw uploadError;
+
+          if (uploadData) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('property-images')
+              .getPublicUrl(filePath);
+            newImageUrls.push(publicUrl);
+          }
+        }
+      }
+
+      // 2. Combine existing and new images
+      const finalImages = [...propertyForm.images, ...newImageUrls];
+
+      if (finalImages.length === 0) {
+        throw new Error('At least one image is required.');
+      }
+
+      // 3. Update property in database
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          title: propertyForm.title,
+          price: parseFloat(propertyForm.price),
+          location: propertyForm.location,
+          type: propertyForm.type,
+          description: propertyForm.description,
+          beds: parseInt(propertyForm.beds) || 0,
+          baths: parseInt(propertyForm.baths) || 0,
+          sqft: parseInt(propertyForm.sqft) || 0,
+          images: finalImages,
+          amenities: propertyForm.amenities
+        })
+        .eq('id', editingProperty.id);
+
+      if (error) throw error;
+
+      setPropertyStatusMessage({ type: 'success', text: 'Property updated successfully!' });
+      setTimeout(() => {
+        setShowPropertyModal(false);
+        setEditingProperty(null);
+        fetchProperties();
+      }, 1500);
+
+    } catch (error: any) {
+      console.error('Error saving property:', error);
+      setPropertyStatusMessage({ type: 'error', text: error.message || 'Failed to update property' });
+    } finally {
+      setIsSubmittingProperty(false);
+    }
+  };
+
+  const handleAddCustomAmenity = () => {
+    if (!customAmenity.trim()) return;
+    if (propertyForm.amenities.includes(customAmenity.trim())) {
+      setCustomAmenity('');
+      return;
+    }
+    setPropertyForm({
+      ...propertyForm,
+      amenities: [...(propertyForm.amenities || []), customAmenity.trim()]
+    });
+    setCustomAmenity('');
+  };
+
+  const DEFAULT_AMENITIES = ['Swimming Pool', 'Gym', 'Air Conditioning', 'Security', 'Parking', 'WiFi', 'Generator', 'Elevator', 'Furnished'];
+
+  return (
+    <div className="pt-24 pb-12 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900">Admin Platform</h1>
+            <p className="text-gray-600">Manage agents, property owners, and listings.</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={cn(
+                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                activeTab === 'users' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              Users
+            </button>
+            <button
+              onClick={() => setActiveTab('properties')}
+              className={cn(
+                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                activeTab === 'properties' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              Properties
+            </button>
+            <button
+              onClick={() => setActiveTab('plans')}
+              className={cn(
+                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                activeTab === 'plans' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              Plans
+            </button>
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={cn(
+                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                activeTab === 'stats' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              Stats
+            </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={cn(
+                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                activeTab === 'profile' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              Profile
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {activeTab === 'users' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
+          >
+            <table className="w-full text-left">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-4 text-sm font-bold text-gray-900">User</th>
+                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Role</th>
+                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Plan</th>
+                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Status</th>
+                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading users...</td>
+                  </tr>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No users found.</td>
+                  </tr>
+                ) : users.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+                          {user.avatar_url ? (
+                            <img 
+                              src={user.avatar_url} 
+                              alt={user.full_name} 
+                              className="h-full w-full object-cover" 
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            (user.full_name || 'U').charAt(0)
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
+                          <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                          <div className="flex flex-col gap-0.5 mt-1">
+                            {user.phone && (
+                              <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
+                                <Phone className="h-2.5 w-2.5" /> {user.phone}
+                              </p>
+                            )}
+                            {user.address && (
+                              <p className="text-[10px] text-gray-400 flex items-center gap-1 max-w-[200px] truncate">
+                                <MapPin className="h-2.5 w-2.5 shrink-0" /> {user.address}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {editingUserId === user.id ? (
+                        <select
+                          value={editForm.role}
+                          onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                          className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                        >
+                          <option value="client">Client</option>
+                          <option value="agent">Agent</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      ) : (
+                        <span className="text-xs font-bold uppercase tracking-wider text-gray-600">{user.role}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {editingUserId === user.id ? (
+                        <select
+                          value={editForm.subscription_plan}
+                          onChange={(e) => setEditForm({ ...editForm, subscription_plan: e.target.value })}
+                          className="text-sm bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                        >
+                          {plans.map(plan => (
+                            <option key={plan.id} value={plan.name}>{plan.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-600 capitalize">{user.subscription_plan || 'New Comers'}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {editingUserId === user.id ? (
+                        <select
+                          value={editForm.status}
+                          onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                          className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="suspended">Suspended</option>
+                        </select>
+                      ) : (
+                        <span className={cn(
+                          "px-3 py-1 rounded-full text-xs font-bold capitalize",
+                          user.status === 'approved' ? "bg-green-100 text-green-700" :
+                          user.status === 'pending' ? "bg-yellow-100 text-yellow-700" :
+                          user.status === 'suspended' ? "bg-red-100 text-red-700" :
+                          "bg-gray-100 text-gray-700"
+                        )}>
+                          {user.status || 'pending'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        {editingUserId === user.id ? (
+                          <>
+                            <button
+                              onClick={() => handleSaveEdit(user.id)}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                              title="Save"
+                            >
+                              <Save className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingUserId(null)}
+                              className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                              title="Cancel"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {user.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => updateUserStatus(user.id, 'approved')}
+                                  className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+                                  title="Approve"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => updateUserStatus(user.id, 'rejected')}
+                                  className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                  title="Reject"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => updateUserStatus(user.id, 'suspended')}
+                                  className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                  title="Suspend User"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => handleEditClick(user)}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            {user.status === 'approved' && (
+                              <button
+                                onClick={() => updateUserStatus(user.id, 'suspended')}
+                                className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                title="Suspend User"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            )}
+                            {user.status === 'suspended' && (
+                              <button
+                                onClick={() => updateUserStatus(user.id, 'approved')}
+                                className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+                                title="Activate User"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </motion.div>
+        )}
+
+        {activeTab === 'properties' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          >
+            {properties.map((property) => (
+              <div key={property.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm flex flex-col">
+                <div className="relative h-48">
+                  <img src={property.images[0]} alt={property.title} className="w-full h-full object-cover" />
+                  <div className="absolute top-4 right-4">
+                    <span className={cn(
+                      "px-3 py-1 rounded-full text-xs font-bold uppercase",
+                      property.status === 'approved' ? "bg-green-600 text-white" : 
+                      property.status === 'pending' ? "bg-yellow-600 text-white" :
+                      property.status === 'deleted' ? "bg-gray-600 text-white" :
+                      "bg-red-600 text-white"
+                    )}>
+                      {property.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-6 flex-1 flex flex-col">
+                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{property.title}</h3>
+                  <p className="text-blue-600 font-bold mb-2">{formatPrice(property.price)}</p>
+                  <p className="text-xs text-gray-500 mb-4 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> {property.location}
+                  </p>
+                  
+                  <div className="mt-auto grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleEditProperty(property)}
+                      className="py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all text-xs flex items-center justify-center gap-1 col-span-2"
+                    >
+                      <Edit2 className="h-3 w-3" /> Edit Property Details
+                    </button>
+                    {property.status !== 'approved' && (
+                      <button
+                        onClick={() => approveProperty(property.id)}
+                        className="py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all text-xs flex items-center justify-center gap-1"
+                      >
+                        <CheckCircle className="h-3 w-3" /> Approve
+                      </button>
+                    )}
+                    {property.status !== 'rejected' && (
+                      <button
+                        onClick={() => rejectProperty(property.id)}
+                        className="py-2 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-700 transition-all text-xs flex items-center justify-center gap-1"
+                      >
+                        <XCircle className="h-3 w-3" /> Reject
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteProperty(property.id)}
+                      className="py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all text-xs flex items-center justify-center gap-1 col-span-2"
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete Permanently
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        )}
+
+        {activeTab === 'plans' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Subscription Plans</h2>
+              <button
+                onClick={() => {
+                  setEditingPlan(null);
+                  setPlanForm({
+                    name: '',
+                    price: 0,
+                    interval: 'month',
+                    features: [],
+                    limits: { properties: 5, images_per_property: 5 }
+                  });
+                  setShowPlanModal(true);
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2"
+              >
+                <CreditCard className="h-4 w-4" /> Create New Plan
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {plans.map((plan) => (
+                <div key={plan.id} className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm flex flex-col">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+                      <p className="text-3xl font-bold text-blue-600 mt-2">
+                        {formatPrice(plan.price)}
+                        <span className="text-sm text-gray-500 font-normal">/{plan.interval}</span>
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingPlan(plan);
+                          setPlanForm(plan);
+                          setShowPlanModal(true);
+                        }}
+                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => deletePlan(plan.id)}
+                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 mb-8">
+                    <div className="text-sm font-bold text-gray-900 uppercase tracking-wider">Limits</div>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li>• {plan.limits.properties === -1 ? 'Unlimited' : plan.limits.properties} Properties</li>
+                      <li>• {plan.limits.images_per_property === -1 ? 'Unlimited' : plan.limits.images_per_property} Images per property</li>
+                    </ul>
+
+                    <div className="text-sm font-bold text-gray-900 uppercase tracking-wider">Features</div>
+                    <ul className="space-y-2">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'stats' && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {[
+              { label: 'Total Users', value: users.length.toString(), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { label: 'Active Listings', value: properties.filter(p => p.status === 'approved').length.toString(), icon: Building2, color: 'text-green-600', bg: 'bg-green-50' },
+              { label: 'Total Properties', value: properties.length.toString(), icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' },
+              { label: 'Pending Approvals', value: (users.filter(u => u.status === 'pending').length + properties.filter(p => p.status === 'pending').length).toString(), icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50' }
+            ].map((stat, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm"
+              >
+                <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center mb-6", stat.bg)}>
+                  <stat.icon className={cn("h-6 w-6", stat.color)} />
+                </div>
+                <p className="text-sm text-gray-500 font-medium mb-1">{stat.label}</p>
+                <p className="text-3xl font-black text-gray-900">{stat.value}</p>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'profile' && user && (
+          <div className="max-w-3xl mx-auto">
+            <ProfileSection userId={user.id} />
+          </div>
+        )}
+      </div>
+
+      {showPlanModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {editingPlan ? 'Edit Plan' : 'Create New Plan'}
+              </h2>
+              <button onClick={() => setShowPlanModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={savePlan} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Plan Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={planForm.name}
+                    onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="e.g. Professional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Price</label>
+                  <input
+                    type="number"
+                    required
+                    value={planForm.price}
+                    onChange={(e) => setPlanForm({ ...planForm, price: Number(e.target.value) })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Interval</label>
+                  <select
+                    value={planForm.interval}
+                    onChange={(e) => setPlanForm({ ...planForm, interval: e.target.value as 'month' | 'year' })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="month">Monthly</option>
+                    <option value="year">Yearly</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-6 rounded-2xl space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Plan Limits</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Property Limit</label>
+                    <input
+                      type="number"
+                      required
+                      value={planForm.limits?.properties}
+                      onChange={(e) => setPlanForm({ 
+                        ...planForm, 
+                        limits: { ...planForm.limits!, properties: Number(e.target.value) } 
+                      })}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <p className="text-xs text-gray-500">Use -1 for unlimited</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Images per Property</label>
+                    <input
+                      type="number"
+                      required
+                      value={planForm.limits?.images_per_property}
+                      onChange={(e) => setPlanForm({ 
+                        ...planForm, 
+                        limits: { ...planForm.limits!, images_per_property: Number(e.target.value) } 
+                      })}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <p className="text-xs text-gray-500">Use -1 for unlimited</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Features</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newFeature}
+                    onChange={(e) => setNewFeature(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                    className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Add a feature..."
+                  />
+                  <button
+                    type="button"
+                    onClick={addFeature}
+                    className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {planForm.features?.map((feature, idx) => (
+                    <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm flex items-center gap-2">
+                      {feature}
+                      <button type="button" onClick={() => removeFeature(idx)} className="hover:text-blue-800">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+              >
+                {editingPlan ? 'Update Plan' : 'Create Plan'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+      {/* Property Edit Modal */}
+      {showPropertyModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-black text-gray-900">Edit Property Details</h2>
+              <button 
+                onClick={() => setShowPropertyModal(false)} 
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-6 w-6 text-gray-400" />
+              </button>
+            </div>
+            
+            <form className="space-y-8" onSubmit={saveProperty}>
+              {propertyStatusMessage && (
+                <div className={cn(
+                  "p-4 rounded-xl text-sm font-bold",
+                  propertyStatusMessage.type === 'success' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                )}>
+                  {propertyStatusMessage.text}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Property Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={propertyForm.title}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, title: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                    placeholder="e.g. Modern Villa with Pool"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Price ($)</label>
+                  <input
+                    type="number"
+                    required
+                    value={propertyForm.price}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, price: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                    placeholder="e.g. 500000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Location</label>
+                  <input
+                    type="text"
+                    required
+                    value={propertyForm.location}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, location: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                    placeholder="e.g. Beverly Hills, CA"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Property Type</label>
+                  <select
+                    value={propertyForm.type}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, type: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                  >
+                    <option value="house">House</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="villa">Villa</option>
+                    <option value="condo">Condo</option>
+                    <option value="land">Land</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700 ml-1">Description</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={propertyForm.description}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, description: e.target.value })}
+                  className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all resize-none"
+                  placeholder="Describe the property..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Beds</label>
+                  <input
+                    type="number"
+                    value={propertyForm.beds}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, beds: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Baths</label>
+                  <input
+                    type="number"
+                    value={propertyForm.baths}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, baths: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Sqft</label>
+                  <input
+                    type="number"
+                    value={propertyForm.sqft}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, sqft: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-sm font-bold text-gray-700 ml-1 uppercase tracking-widest">Amenities</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                  {DEFAULT_AMENITIES.map((amenity) => (
+                    <label key={amenity} className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer hover:bg-blue-50 transition-all group">
+                      <input 
+                        type="checkbox" 
+                        checked={propertyForm.amenities?.includes(amenity)}
+                        onChange={(e) => {
+                          const currentAmenities = propertyForm.amenities || [];
+                          const newAmenities = e.target.checked 
+                            ? [...currentAmenities, amenity]
+                            : currentAmenities.filter((a: string) => a !== amenity);
+                          setPropertyForm({ ...propertyForm, amenities: newAmenities });
+                        }}
+                        className="h-5 w-5 rounded-lg border-gray-300 text-blue-600 focus:ring-blue-600"
+                      />
+                      <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600">{amenity}</span>
+                    </label>
+                  ))}
+                  
+                  {/* Custom Amenities already added */}
+                  {(propertyForm.amenities || []).filter((a: string) => !DEFAULT_AMENITIES.includes(a)).map((amenity: string) => (
+                    <label key={amenity} className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-200 cursor-pointer hover:bg-blue-100 transition-all group">
+                      <input 
+                        type="checkbox" 
+                        checked={true}
+                        onChange={() => {
+                          setPropertyForm({
+                            ...propertyForm,
+                            amenities: propertyForm.amenities.filter((a: string) => a !== amenity)
+                          });
+                        }}
+                        className="h-5 w-5 rounded-lg border-blue-600 text-blue-600 focus:ring-blue-600"
+                      />
+                      <span className="text-sm font-bold text-blue-700">{amenity}</span>
+                    </label>
+                  ))}
+                </div>
+                
+                {/* Add Custom Amenity Input */}
+                <div className="flex gap-3">
+                  <input 
+                    type="text"
+                    value={customAmenity}
+                    onChange={(e) => setCustomAmenity(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomAmenity())}
+                    placeholder="Add custom amenity (e.g. Penthouse)"
+                    className="flex-1 px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomAmenity}
+                    className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-sm font-bold text-gray-700 ml-1">Property Images</label>
+                
+                {/* Existing Images */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {propertyForm.images.map((url: string, index: number) => (
+                    <div key={`existing-${index}`} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-gray-100">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(index)}
+                        className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {/* New Previews */}
+                  {previews.map((url, index) => (
+                    <div key={`new-${index}`} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-blue-200">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute top-2 left-2 px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full">NEW</div>
+                      <button
+                        type="button"
+                        onClick={() => removeNewImage(index)}
+                        className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                  <label className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group">
+                    <div className="h-10 w-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-blue-100 transition-all">
+                      <Plus className="h-5 w-5 text-gray-400 group-hover:text-blue-600" />
+                    </div>
+                    <span className="text-xs font-bold text-gray-400 group-hover:text-blue-600">Add More</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handlePropertyFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowPropertyModal(false)}
+                  className="flex-1 px-8 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold hover:bg-gray-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingProperty}
+                  className="flex-1 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingProperty ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5" />
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}

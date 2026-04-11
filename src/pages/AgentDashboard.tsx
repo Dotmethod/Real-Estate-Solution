@@ -1,0 +1,1141 @@
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Plus, Building2, TrendingUp, Eye, Edit, Trash2, MapPin, User, LayoutDashboard, X, Image as ImageIcon, Loader2, AlertTriangle, CreditCard } from 'lucide-react';
+import { formatPrice, cn } from '../lib/utils';
+import { motion } from 'motion/react';
+import ProfileSection from '../components/ProfileSection';
+import { supabase } from '../lib/supabase';
+
+interface Property {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  location: string;
+  beds: number;
+  baths: number;
+  sqft: number;
+  type: string;
+  status: string;
+  images: string[];
+  agent_id: string;
+  created_at: string;
+  amenities?: string[];
+}
+
+export default function AgentDashboard() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') as 'overview' | 'listings' | 'profile' || 'overview';
+  const [activeTab, setActiveTab] = useState<'overview' | 'listings' | 'profile'>(initialTab);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [planDetails, setPlanDetails] = useState<any>(null);
+
+  // Search and Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Form State
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [customAmenity, setCustomAmenity] = useState('');
+  const [formData, setFormData] = useState({
+    title: '',
+    price: '',
+    location: '',
+    type: 'house',
+    description: '',
+    beds: '',
+    baths: '',
+    sqft: '',
+    amenities: [] as string[],
+  });
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        let { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        // If profile doesn't exist, create it from user metadata
+        if (profileError && profileError.code === 'PGRST116') {
+          console.log('Profile not found, creating from metadata...');
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: session.user.id,
+              full_name: session.user.user_metadata?.full_name || 'Agent',
+              role: session.user.user_metadata?.role || 'agent',
+              status: session.user.user_metadata?.status || 'approved',
+              email: session.user.email,
+              subscription_plan: 'New Comers'
+            })
+            .select()
+            .single();
+          
+          if (!createError) {
+            profileData = newProfile;
+          } else {
+            console.error('Error creating profile:', createError);
+          }
+        }
+
+        if (profileData?.status !== 'approved' && profileData?.status !== 'suspended' && profileData?.role !== 'admin') {
+          await supabase.auth.signOut();
+          window.location.href = '/login?message=pending';
+          return;
+        }
+        
+        setProfile(profileData);
+
+        // Fetch plan details
+        if (profileData?.subscription_plan) {
+          const { data: planData } = await supabase
+            .from('subscription_plans')
+            .select('*')
+            .ilike('name', profileData.subscription_plan)
+            .single();
+          setPlanDetails(planData);
+        }
+      } else {
+        navigate('/login');
+      }
+      setIsLoading(false);
+    };
+
+    fetchUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        let { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        // If profile doesn't exist, create it from user metadata
+        if (profileError && profileError.code === 'PGRST116') {
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({
+              id: session.user.id,
+              full_name: session.user.user_metadata?.full_name || 'Agent',
+              role: session.user.user_metadata?.role || 'agent',
+              status: session.user.user_metadata?.status || 'approved',
+              email: session.user.email,
+              subscription_plan: 'New Comers'
+            })
+            .select()
+            .single();
+          
+          if (newProfile) {
+            profileData = newProfile;
+          }
+        }
+        
+        if (profileData?.status !== 'approved' && profileData?.status !== 'suspended' && profileData?.role !== 'admin') {
+          await supabase.auth.signOut();
+          window.location.href = '/login?message=pending';
+          return;
+        }
+        
+        setProfile(profileData);
+
+        // Fetch plan details
+        if (profileData?.subscription_plan) {
+          const { data: planData } = await supabase
+            .from('subscription_plans')
+            .select('*')
+            .ilike('name', profileData.subscription_plan)
+            .single();
+          setPlanDetails(planData);
+        }
+      } else {
+        setUser(null);
+        setProfile(null);
+        navigate('/login');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchProperties();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'profile' || tab === 'overview' || tab === 'listings') {
+      setActiveTab(tab as any);
+    }
+  }, [searchParams]);
+
+  const fetchProperties = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('agent_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setProperties(data || []);
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    if (files.length === 0) return;
+
+    setSelectedFiles(prev => [...prev, ...files]);
+
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => {
+      const newPreviews = prev.filter((_, i) => i !== index);
+      // Revoke the URL to avoid memory leaks
+      URL.revokeObjectURL(prev[index]);
+      return newPreviews;
+    });
+  };
+
+  const [statusMessage, setStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMessage(null);
+    
+    if (!user) {
+      setStatusMessage({ type: 'error', text: 'You must be logged in to upload a property.' });
+      return;
+    }
+
+    if (profile?.status === 'suspended') {
+      setStatusMessage({ type: 'error', text: 'Your account is suspended. You cannot submit new properties.' });
+      return;
+    }
+
+    if (profile?.status !== 'approved' && profile?.role !== 'admin') {
+      setStatusMessage({ type: 'error', text: 'Your account is pending admin approval. You cannot submit properties yet.' });
+      return;
+    }
+
+    // Check subscription limits
+    if (profile?.role !== 'admin') {
+      const currentListingCount = properties.length;
+      const maxListings = planDetails?.limits?.properties || 0;
+      const maxImages = planDetails?.limits?.images_per_property || 5; // Default to 5 if not loaded
+
+      // Only check listing limit for new properties
+      if (!editingProperty && maxListings !== -1 && currentListingCount >= maxListings) {
+        setStatusMessage({ 
+          type: 'error', 
+          text: `You have reached the listing limit for your ${profile?.subscription_plan || 'current'} plan (${maxListings} properties). Please upgrade your plan to list more.` 
+        });
+        return;
+      }
+
+      if (maxImages !== -1 && selectedFiles.length > maxImages) {
+        setStatusMessage({ 
+          type: 'error', 
+          text: `Your plan allows a maximum of ${maxImages} images per property.` 
+        });
+        return;
+      }
+    }
+
+    // Manual validation to ensure we catch errors before submission
+    if (!formData.title.trim() || formData.title.trim().length < 5) {
+      setStatusMessage({ type: 'error', text: 'Property title must be at least 5 characters long.' });
+      return;
+    }
+    if (!formData.price || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
+      setStatusMessage({ type: 'error', text: 'Please enter a valid positive price.' });
+      return;
+    }
+    if (!formData.description.trim() || formData.description.trim().length < 20) {
+      setStatusMessage({ type: 'error', text: 'Description must be at least 20 characters long.' });
+      return;
+    }
+
+    if (!formData.location.trim()) {
+      setStatusMessage({ type: 'error', text: 'Location is required.' });
+      return;
+    }
+
+    if (formData.beds && (isNaN(parseInt(formData.beds)) || parseInt(formData.beds) < 0)) {
+      setStatusMessage({ type: 'error', text: 'Beds must be a non-negative number.' });
+      return;
+    }
+
+    if (formData.baths && (isNaN(parseInt(formData.baths)) || parseInt(formData.baths) < 0)) {
+      setStatusMessage({ type: 'error', text: 'Baths must be a non-negative number.' });
+      return;
+    }
+
+    if (formData.sqft && (isNaN(parseInt(formData.sqft)) || parseInt(formData.sqft) < 0)) {
+      setStatusMessage({ type: 'error', text: 'Sqft must be a non-negative number.' });
+      return;
+    }
+
+    if (selectedFiles.length === 0 && !editingProperty) {
+      setStatusMessage({ type: 'error', text: 'Please upload at least one property image.' });
+      return;
+    }
+
+    if (editingProperty && !isEditable(editingProperty.created_at)) {
+      setStatusMessage({ 
+        type: 'error', 
+        text: 'This property was posted more than 1 hour ago and can no longer be edited. Please upgrade your plan or contact support to make changes.' 
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+    setUploadProgress(0);
+    setUploadStatus('Starting upload...');
+
+    try {
+      // 1. Upload files to Supabase Storage
+      const imageUrls: string[] = [];
+      
+      if (selectedFiles.length > 0) {
+        const totalFiles = selectedFiles.length;
+        for (let i = 0; i < totalFiles; i++) {
+          const file = selectedFiles[i];
+          setUploadStatus(`Uploading image ${i + 1} of ${totalFiles}...`);
+          
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Math.random()}.${fileExt}`;
+          const filePath = `${user.id}/${Date.now()}-${fileName}`;
+
+          const { error: uploadError, data: uploadData } = await supabase.storage
+            .from('property-images')
+            .upload(filePath, file);
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw new Error(`Failed to upload image "${file.name}": ${uploadError.message}`);
+          }
+
+          if (uploadData) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('property-images')
+              .getPublicUrl(filePath);
+            imageUrls.push(publicUrl);
+          }
+          
+          setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+        }
+      } else {
+        // Fallback if no images selected
+        imageUrls.push('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000');
+      }
+
+      setUploadStatus('Saving property details...');
+      const propertyData: any = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        price: parseFloat(formData.price),
+        location: formData.location.trim(),
+        type: formData.type,
+        beds: parseInt(formData.beds) || 0,
+        baths: parseInt(formData.baths) || 0,
+        sqft: parseInt(formData.sqft) || 0,
+        agent_id: user.id,
+        status: 'approved',
+        amenities: formData.amenities
+      };
+
+      // Only update images if new ones were uploaded
+      if (imageUrls.length > 0) {
+        propertyData.images = imageUrls;
+      } else if (editingProperty) {
+        propertyData.images = editingProperty.images;
+      } else {
+        propertyData.images = ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000'];
+      }
+
+      console.log('Attempting to save property:', propertyData);
+
+      let result;
+      if (editingProperty) {
+        result = await supabase
+          .from('properties')
+          .update(propertyData)
+          .eq('id', editingProperty.id)
+          .select();
+      } else {
+        result = await supabase
+          .from('properties')
+          .insert([propertyData])
+          .select();
+      }
+
+      const { error, data } = result;
+
+      if (error) {
+        console.error('Supabase save error:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('Property saved successfully:', data);
+      
+      // Success!
+      setStatusMessage({ 
+        type: 'success', 
+        text: editingProperty ? 'Property updated successfully!' : 'Property published successfully! Your listing is now live.' 
+      });
+      
+      // Delay closing modal to show success message
+      setTimeout(() => {
+        setShowUploadModal(false);
+        setEditingProperty(null);
+        setStatusMessage(null);
+        setFormData({
+          title: '',
+          price: '',
+          location: '',
+          type: 'house',
+          description: '',
+          beds: '',
+          baths: '',
+          sqft: '',
+          amenities: [],
+        });
+        setSelectedFiles([]);
+        setPreviews([]);
+        fetchProperties();
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Error uploading property:', error);
+      setStatusMessage({ type: 'error', text: `Failed to upload property: ${error.message || 'Unknown error'}` });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isEditable = (createdAt: string) => {
+    if (profile?.role === 'admin') return true;
+    const createdDate = new Date(createdAt);
+    const now = new Date();
+    const diffInMs = now.getTime() - createdDate.getTime();
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    return diffInHours <= 1;
+  };
+
+  const handleEdit = (property: Property) => {
+    if (!isEditable(property.created_at)) {
+      setStatusMessage({ 
+        type: 'error', 
+        text: 'This property was posted more than 1 hour ago and can no longer be edited. Please upgrade your plan or contact support to make changes.' 
+      });
+      return;
+    }
+    setEditingProperty(property);
+    setFormData({
+      title: property.title,
+      price: property.price.toString(),
+      location: property.location,
+      type: property.type,
+      description: property.description,
+      beds: property.beds.toString(),
+      baths: property.baths.toString(),
+      sqft: property.sqft.toString(),
+      amenities: property.amenities || [],
+    });
+    setPreviews(property.images);
+    setShowUploadModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ status: 'deleted' })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      // Refresh properties to reflect the status change
+      fetchProperties();
+      setShowDeleteConfirm(null);
+    } catch (error: any) {
+      console.error('Error deleting property:', error);
+      alert('Failed to delete property: ' + error.message);
+    }
+  };
+
+  const filteredProperties = properties.filter(property => {
+    if (property.status === 'deleted') return false;
+    const matchesSearch = property.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          property.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === 'all' || property.type === typeFilter;
+    const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  const handleAddCustomAmenity = () => {
+    if (!customAmenity.trim()) return;
+    if (formData.amenities.includes(customAmenity.trim())) {
+      setCustomAmenity('');
+      return;
+    }
+    setFormData({
+      ...formData,
+      amenities: [...formData.amenities, customAmenity.trim()]
+    });
+    setCustomAmenity('');
+  };
+
+  const DEFAULT_AMENITIES = ['Swimming Pool', 'Gym', 'Air Conditioning', 'Security', 'Parking', 'WiFi', 'Generator', 'Elevator', 'Furnished'];
+
+  return (
+    <div className="pt-24 pb-12 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {profile?.status === 'suspended' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 bg-red-50 border border-red-100 rounded-[2rem] flex items-center gap-4 text-red-700 shadow-sm"
+          >
+            <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black mb-1">Account Suspended</h3>
+              <p className="text-sm font-medium opacity-80">Your account has been suspended by an administrator. You can still view your dashboard, but you cannot submit new properties or edit existing ones until the suspension is lifted.</p>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900">Agent Dashboard</h1>
+            <p className="text-gray-600">Welcome back, {profile?.full_name || user?.user_metadata?.full_name || 'Agent'}. Manage your listings and leads.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={cn(
+                  "px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
+                  activeTab === 'overview' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4" /> Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('listings')}
+                className={cn(
+                  "px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
+                  activeTab === 'listings' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                )}
+              >
+                <Building2 className="h-4 w-4" /> Listings
+              </button>
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={cn(
+                  "px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
+                  activeTab === 'profile' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                )}
+              >
+                <User className="h-4 w-4" /> Profile
+              </button>
+            </div>
+            {(profile?.status === 'approved' || profile?.role === 'admin') ? (
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200"
+              >
+                <Plus className="h-5 w-5" /> Upload Property
+              </button>
+            ) : profile?.status === 'suspended' ? (
+              <div className="bg-gray-100 text-gray-400 px-8 py-4 rounded-xl font-bold flex items-center gap-2 cursor-not-allowed border border-gray-200">
+                <AlertTriangle className="h-5 w-5" /> Upload Disabled
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {activeTab === 'overview' && (
+          <>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+              {[
+                { label: 'Active Listings', value: properties.filter(p => p.status !== 'deleted').length, icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { label: 'Total Listings Used', value: properties.length, icon: Building2, color: 'text-orange-600', bg: 'bg-orange-50' },
+                { label: 'Total Views', value: '12,450', icon: Eye, color: 'text-purple-600', bg: 'bg-purple-50' },
+              ].map((stat, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm"
+                >
+                  <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center mb-6", stat.bg)}>
+                    <stat.icon className={cn("h-6 w-6", stat.color)} />
+                  </div>
+                  <p className="text-sm text-gray-500 font-medium mb-1">{stat.label}</p>
+                  <p className="text-3xl font-black text-gray-900">{stat.value}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Subscription Limits */}
+            {planDetails && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm mb-12"
+              >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                        <CreditCard className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight">Current Plan: <span className="text-blue-600">{planDetails.name}</span></h2>
+                    </div>
+                    <p className="text-gray-500 font-medium">Your subscription limits and current usage (including deleted listings)</p>
+                  </div>
+                    <div className="flex flex-wrap gap-4">
+                      <div className="px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Listings Limit</p>
+                        <div className="flex items-end gap-2">
+                          <span className="text-2xl font-black text-gray-900">{properties.length}</span>
+                          <span className="text-gray-400 font-bold mb-1">/ {planDetails.limits?.properties === -1 ? '∞' : (planDetails.limits?.properties || 0)}</span>
+                        </div>
+                      </div>
+                      <div className="px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Images per Listing</p>
+                        <div className="flex items-end gap-2">
+                          <span className="text-2xl font-black text-gray-900">{planDetails.limits?.images_per_property === -1 ? '∞' : (planDetails.limits?.images_per_property || 0)}</span>
+                          <span className="text-gray-400 font-bold mb-1">Max</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  {planDetails.limits?.properties !== -1 && (
+                    <div className="mt-8">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-bold text-gray-700">Listings Usage</span>
+                        <span className="text-sm font-bold text-blue-600">
+                          {Math.round((properties.length / (planDetails.limits?.properties || 1)) * 100)}%
+                        </span>
+                      </div>
+                      <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min((properties.length / (planDetails.limits?.properties || 1)) * 100, 100)}%` }}
+                          className={cn(
+                            "h-full transition-all duration-1000",
+                            (properties.length / (planDetails.limits?.properties || 1)) >= 0.9 ? "bg-red-500" : "bg-blue-600"
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+              </motion.div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'listings' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {/* Search and Filters */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+              <div className="relative flex-1 w-full">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input 
+                  type="text" 
+                  placeholder="Search by title or location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all"
+                />
+              </div>
+              <div className="flex gap-4 w-full md:w-auto">
+                <select 
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="flex-1 md:w-40 px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all bg-white"
+                >
+                  <option value="all">All Types</option>
+                  <option value="house">House</option>
+                  <option value="apartment">Apartment</option>
+                  <option value="land">Land</option>
+                  <option value="commercial">Commercial</option>
+                </select>
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="flex-1 md:w-40 px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all bg-white"
+                >
+                  <option value="all">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-8 border-b border-gray-100 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-900">My Listings</h2>
+                <span className="text-sm text-gray-500 font-medium">Showing {filteredProperties.length} properties</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-8 py-4 text-sm font-bold text-gray-900">Property</th>
+                      <th className="px-8 py-4 text-sm font-bold text-gray-900">Price</th>
+                      <th className="px-8 py-4 text-sm font-bold text-gray-900">Status</th>
+                      <th className="px-8 py-4 text-sm font-bold text-gray-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={4} className="px-8 py-12 text-center text-gray-500">Loading properties...</td>
+                      </tr>
+                    ) : filteredProperties.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-8 py-12 text-center text-gray-500">No properties found matching your criteria.</td>
+                      </tr>
+                    ) : filteredProperties.map((property) => (
+                      <tr key={property.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <img src={property.images[0]} alt="" className="h-16 w-16 rounded-xl object-cover" />
+                            <div>
+                              <p className="font-bold text-gray-900">{property.title}</p>
+                              <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                <MapPin className="h-3 w-3" /> {property.location}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="font-bold text-blue-600">{formatPrice(property.price)}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+                            property.status === 'approved' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                          )}>
+                            {property.status}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-2">
+                            {isEditable(property.created_at) ? (
+                              <button 
+                                onClick={() => handleEdit(property)}
+                                disabled={profile?.status === 'suspended'}
+                                className={cn(
+                                  "p-2 rounded-lg transition-colors",
+                                  profile?.status === 'suspended' ? "bg-gray-50 text-gray-300 cursor-not-allowed" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                                )}
+                                title={profile?.status === 'suspended' ? "Account Suspended" : "Edit"}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <div 
+                                className="p-2 rounded-lg bg-gray-50 text-gray-300 cursor-not-allowed"
+                                title="Editing disabled (1 hour limit exceeded)"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </div>
+                            )}
+                            <button 
+                              onClick={() => setShowDeleteConfirm(property.id)}
+                              disabled={profile?.status === 'suspended'}
+                              className={cn(
+                                "p-2 rounded-lg transition-colors",
+                                profile?.status === 'suspended' ? "bg-gray-50 text-gray-300 cursor-not-allowed" : "bg-red-50 text-red-600 hover:bg-red-100"
+                              )}
+                              title={profile?.status === 'suspended' ? "Account Suspended" : "Delete"}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'profile' && (
+          <div className="max-w-3xl mx-auto">
+            <ProfileSection userId={user?.id || ''} />
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-md w-full"
+          >
+            <div className="h-16 w-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6">
+              <Trash2 className="h-8 w-8 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-black text-gray-900 mb-2">Delete Property?</h2>
+            <p className="text-gray-600 mb-8">This action cannot be undone. This property will be permanently removed from our listings.</p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-6 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                className="flex-1 px-6 py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition-all shadow-lg shadow-red-200"
+              >
+                Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-black text-gray-900">{editingProperty ? 'Edit Property' : 'Upload New Property'}</h2>
+              <button 
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setEditingProperty(null);
+                  setFormData({
+                    title: '',
+                    price: '',
+                    location: '',
+                    type: 'house',
+                    description: '',
+                    beds: '',
+                    baths: '',
+                    sqft: '',
+                  });
+                  setSelectedFiles([]);
+                  setPreviews([]);
+                }} 
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-6 w-6 text-gray-400" />
+              </button>
+            </div>
+            
+            <form className="space-y-8" onSubmit={handleSubmit}>
+              {planDetails && (
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                      <CreditCard className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Plan: {planDetails.name}</p>
+                      <p className="text-sm font-bold text-gray-700">
+                        {properties.length} / {planDetails.limits?.properties || '∞'} Listings used
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Image Limit</p>
+                    <p className="text-sm font-bold text-gray-700">{planDetails.limits?.images_per_property || '∞'} per property</p>
+                  </div>
+                </div>
+              )}
+              
+              {statusMessage && (
+                <div className={cn(
+                  "p-4 rounded-xl text-sm font-bold",
+                  statusMessage.type === 'success' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                )}>
+                  {statusMessage.text}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Property Title</label>
+                  <input 
+                    type="text" 
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                    placeholder="e.g. Modern 4 Bedroom House" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Price (₦)</label>
+                  <input 
+                    type="number" 
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                    placeholder="e.g. 50000000" 
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Location</label>
+                  <div className="relative mb-4">
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input 
+                      type="text" 
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                      placeholder="e.g. Lekki, Lagos" 
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Property Type</label>
+                  <select 
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all"
+                  >
+                    <option value="house">House</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="condo">Condo</option>
+                    <option value="land">Land</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Beds</label>
+                    <input 
+                      type="number" 
+                      value={formData.beds}
+                      onChange={(e) => setFormData({ ...formData, beds: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Baths</label>
+                    <input 
+                      type="number" 
+                      value={formData.baths}
+                      onChange={(e) => setFormData({ ...formData, baths: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Sqft</label>
+                    <input 
+                      type="number" 
+                      value={formData.sqft}
+                      onChange={(e) => setFormData({ ...formData, sqft: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none" 
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Description</label>
+                <textarea 
+                  rows={4} 
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                  placeholder="Describe the property..."
+                ></textarea>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest">Amenities</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                  {DEFAULT_AMENITIES.map((amenity) => (
+                    <label key={amenity} className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer hover:bg-blue-50 transition-all group">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.amenities.includes(amenity)}
+                        onChange={(e) => {
+                          const newAmenities = e.target.checked 
+                            ? [...formData.amenities, amenity]
+                            : formData.amenities.filter(a => a !== amenity);
+                          setFormData({ ...formData, amenities: newAmenities });
+                        }}
+                        className="h-5 w-5 rounded-lg border-gray-300 text-blue-600 focus:ring-blue-600"
+                      />
+                      <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600">{amenity}</span>
+                    </label>
+                  ))}
+                  
+                  {/* Custom Amenities already added */}
+                  {formData.amenities.filter(a => !DEFAULT_AMENITIES.includes(a)).map((amenity) => (
+                    <label key={amenity} className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-200 cursor-pointer hover:bg-blue-100 transition-all group">
+                      <input 
+                        type="checkbox" 
+                        checked={true}
+                        onChange={() => {
+                          setFormData({
+                            ...formData,
+                            amenities: formData.amenities.filter(a => a !== amenity)
+                          });
+                        }}
+                        className="h-5 w-5 rounded-lg border-blue-600 text-blue-600 focus:ring-blue-600"
+                      />
+                      <span className="text-sm font-bold text-blue-700">{amenity}</span>
+                    </label>
+                  ))}
+                </div>
+                
+                {/* Add Custom Amenity Input */}
+                <div className="flex gap-3">
+                  <input 
+                    type="text"
+                    value={customAmenity}
+                    onChange={(e) => setCustomAmenity(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomAmenity())}
+                    placeholder="Add custom amenity (e.g. Penthouse)"
+                    className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomAmenity}
+                    className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-4">Property Images</label>
+                
+                {/* Image Previews */}
+                {previews.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                    {previews.map((url, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden group">
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all">
+                      <Plus className="h-6 w-6 text-gray-400" />
+                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
+                    </label>
+                  </div>
+                )}
+
+                {previews.length === 0 && (
+                  <label className="block bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] p-12 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all group">
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
+                    <div className="flex flex-col items-center">
+                      <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
+                        <ImageIcon className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <p className="text-lg font-bold text-gray-900">Click to upload images</p>
+                      <p className="text-sm text-gray-500 mt-1">Select multiple photos of the property</p>
+                      <p className="text-xs text-gray-400 mt-4 uppercase tracking-widest font-bold">PNG, JPG up to 10MB</p>
+                    </div>
+                  </label>
+                )}
+              </div>
+              
+              {isSubmitting && (
+                <div className="space-y-3 bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-bold text-blue-900 flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {uploadStatus}
+                    </span>
+                    <span className="font-black text-blue-600">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-blue-100 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      className="h-full bg-blue-600"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    {editingProperty ? 'Updating Property...' : 'Publishing Property...'}
+                  </>
+                ) : (
+                  editingProperty ? 'Update Property' : 'Publish Property'
+                )}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}
