@@ -97,12 +97,14 @@ export default function Login() {
       console.error('Login error:', err);
       
       let userFriendlyMessage = err.message;
+      let showResend = false;
 
       // Map common Supabase auth errors to user-friendly messages
       if (err.message?.toLowerCase().includes('invalid login credentials')) {
         userFriendlyMessage = 'Invalid email or password. Please check your credentials and try again.';
       } else if (err.message?.toLowerCase().includes('email not confirmed')) {
         userFriendlyMessage = 'Your email address has not been verified. Please check your inbox for a verification link.';
+        showResend = true;
       } else if (err.message?.toLowerCase().includes('user not found')) {
         userFriendlyMessage = 'No account found with this email address. Please sign up first.';
       } else if (err.message?.toLowerCase().includes('rate limit')) {
@@ -112,8 +114,32 @@ export default function Login() {
       }
 
       setError(userFriendlyMessage);
+      setCanResend(showResend);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const [canResend, setCanResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/email-confirmation`,
+        },
+      });
+      if (error) throw error;
+      setInfoMessage('Verification email resent! Please check your inbox.');
+      setCanResend(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -133,9 +159,20 @@ export default function Login() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm">
-            <Building2 className="h-5 w-5 shrink-0" />
-            {error}
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex flex-col gap-3 text-red-600 text-sm">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-5 w-5 shrink-0" />
+              {error}
+            </div>
+            {canResend && (
+              <button
+                onClick={handleResendVerification}
+                disabled={resendLoading}
+                className="text-blue-600 font-bold hover:underline text-left ml-8 disabled:opacity-50"
+              >
+                {resendLoading ? 'Resending...' : 'Resend verification email'}
+              </button>
+            )}
           </div>
         )}
 

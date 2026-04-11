@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import EmailConfirmation from './pages/EmailConfirmation';
 import PropertyDetail from './pages/PropertyDetail';
 import Properties from './pages/Properties';
 import { supabase } from './lib/supabase';
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/email-confirmation" element={<EmailConfirmation />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/dashboard" element={<AgentDashboard />} />
         </Routes>

@@ -46,12 +46,14 @@ export default function Signup() {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/email-confirmation`,
           data: {
             full_name: name,
             role: finalRole,
             status: finalRole === 'admin' ? 'approved' : 'pending',
             phone,
             address,
+            subscription_updated_at: new Date().toISOString(),
           },
         },
       });
@@ -90,19 +92,16 @@ export default function Signup() {
             address,
             avatar_url: avatarUrl,
             email: email,
-            subscription_plan: 'New Comers'
+            subscription_plan: 'Starter Plan'
           });
 
         if (profileError) console.error('Error creating/updating profile:', profileError);
 
-        if (finalRole === 'admin') {
-          navigate('/admin');
-        } else {
-          // Show a success message or redirect to login with a message
-          setStatusMessage('Your account has been created and is pending admin approval. You will be able to log in once approved.');
-          // Or just navigate to login with a query param
-          setTimeout(() => navigate('/login?message=pending'), 3000);
-        }
+        // Inform user about email verification
+        setStatusMessage('Account created! Please check your email for a verification link. You must verify your email before you can log in.');
+        
+        // Scroll to top to see the message
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
       setError(err.message);

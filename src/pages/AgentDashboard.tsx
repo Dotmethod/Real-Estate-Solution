@@ -48,7 +48,7 @@ export default function AgentDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<(File | string)[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [customAmenity, setCustomAmenity] = useState('');
   const [formData, setFormData] = useState({
@@ -88,7 +88,7 @@ export default function AgentDashboard() {
               role: session.user.user_metadata?.role || 'agent',
               status: session.user.user_metadata?.status || 'approved',
               email: session.user.email,
-              subscription_plan: 'New Comers'
+              subscription_plan: 'Starter Plan'
             })
             .select()
             .single();
@@ -144,7 +144,7 @@ export default function AgentDashboard() {
               role: session.user.user_metadata?.role || 'agent',
               status: session.user.user_metadata?.status || 'approved',
               email: session.user.email,
-              subscription_plan: 'New Comers'
+              subscription_plan: 'Starter Plan'
             })
             .select()
             .single();
@@ -216,6 +216,19 @@ export default function AgentDashboard() {
     const files = Array.from(e.target.files || []) as File[];
     if (files.length === 0) return;
 
+    // Check image limit
+    const maxImages = planDetails?.limits?.images_per_property || 5;
+    if (profile?.role !== 'admin' && maxImages !== -1) {
+      const currentCount = selectedFiles.length;
+      if (currentCount + files.length > maxImages) {
+        setStatusMessage({ 
+          type: 'error', 
+          text: `Your ${profile?.subscription_plan} plan allows a maximum of ${maxImages} images per property. You currently have ${currentCount} and tried to add ${files.length}.` 
+        });
+        return;
+      }
+    }
+
     setSelectedFiles(prev => [...prev, ...files]);
 
     const newPreviews = files.map(file => URL.createObjectURL(file));
@@ -223,16 +236,30 @@ export default function AgentDashboard() {
   };
 
   const removeImage = (index: number) => {
+    const itemToRemove = selectedFiles[index];
+    
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     setPreviews(prev => {
       const newPreviews = prev.filter((_, i) => i !== index);
-      // Revoke the URL to avoid memory leaks
-      URL.revokeObjectURL(prev[index]);
+      // Only revoke if it was a blob URL (newly uploaded)
+      if (typeof itemToRemove !== 'string') {
+        URL.revokeObjectURL(prev[index]);
+      }
       return newPreviews;
     });
   };
 
   const [statusMessage, setStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+
+  const getCurrentListingCount = () => {
+    if (profile?.role === 'admin') return 0;
+    const subscriptionUpdatedAt = user?.user_metadata?.subscription_updated_at;
+    // Count only properties created after the last subscription update
+    return properties.filter(p => 
+      p.status !== 'deleted' && 
+      (!subscriptionUpdatedAt || new Date(p.created_at) > new Date(subscriptionUpdatedAt))
+    ).length;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,25 +282,27 @@ export default function AgentDashboard() {
 
     // Check subscription limits
     if (profile?.role !== 'admin') {
-      const activeProperties = properties.filter(p => p.status !== 'deleted');
-      const currentListingCount = activeProperties.length;
+      const currentListingCount = getCurrentListingCount();
       const maxListings = planDetails?.limits?.properties || 0;
-      const maxImages = planDetails?.limits?.images_per_property || 5; // Default to 5 if not loaded
+      const maxImages = planDetails?.limits?.images_per_property || 5;
 
       // Only check listing limit for new properties
       if (!editingProperty && maxListings !== -1 && currentListingCount >= maxListings) {
         setStatusMessage({ 
           type: 'error', 
-          text: `You have reached the listing limit for your ${profile?.subscription_plan || 'current'} plan (${maxListings} properties). Please upgrade your plan to list more.` 
+          text: `You have reached the listing limit for your ${profile?.subscription_plan} plan (${maxListings} properties). Please upgrade your plan to list more.` 
         });
+        setIsSubmitting(false);
         return;
       }
 
+      // Check image limit
       if (maxImages !== -1 && selectedFiles.length > maxImages) {
         setStatusMessage({ 
           type: 'error', 
-          text: `Your plan allows a maximum of ${maxImages} images per property.` 
+          text: `Your ${profile?.subscription_plan} plan allows a maximum of ${maxImages} images per property.` 
         });
+        setIsSubmitting(false);
         return;
       }
     }
@@ -332,14 +361,16 @@ export default function AgentDashboard() {
     setUploadStatus('Starting upload...');
 
     try {
-      // 1. Upload files to Supabase Storage
-      const imageUrls: string[] = [];
+      // 1. Process images (upload new ones, keep existing ones)
+      const finalImageUrls: string[] = [];
+      const filesToUpload = selectedFiles.filter(f => typeof f !== 'string') as File[];
+      const existingUrls = selectedFiles.filter(f => typeof f === 'string') as string[];
       
-      if (selectedFiles.length > 0) {
-        const totalFiles = selectedFiles.length;
+      if (filesToUpload.length > 0) {
+        const totalFiles = filesToUpload.length;
         for (let i = 0; i < totalFiles; i++) {
-          const file = selectedFiles[i];
-          setUploadStatus(`Uploading image ${i + 1} of ${totalFiles}...`);
+          const file = filesToUpload[i];
+          setUploadStatus(`Uploading new image ${i + 1} of ${totalFiles}...`);
           
           const fileExt = file.name.split('.').pop();
           const fileName = `${Math.random()}.${fileExt}`;
@@ -358,14 +389,19 @@ export default function AgentDashboard() {
             const { data: { publicUrl } } = supabase.storage
               .from('property-images')
               .getPublicUrl(filePath);
-            imageUrls.push(publicUrl);
+            finalImageUrls.push(publicUrl);
           }
           
           setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
         }
-      } else {
-        // Fallback if no images selected
-        imageUrls.push('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000');
+      }
+
+      // Combine existing URLs with newly uploaded ones
+      const allImageUrls = [...existingUrls, ...finalImageUrls];
+
+      if (allImageUrls.length === 0) {
+        // Fallback if no images
+        allImageUrls.push('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000');
       }
 
       setUploadStatus('Saving property details...');
@@ -385,17 +421,9 @@ export default function AgentDashboard() {
         sqft: parseInt(formData.sqft) || 0,
         agent_id: user.id,
         status: 'approved',
-        amenities: formData.amenities
+        amenities: formData.amenities,
+        images: allImageUrls
       };
-
-      // Only update images if new ones were uploaded
-      if (imageUrls.length > 0) {
-        propertyData.images = imageUrls;
-      } else if (editingProperty) {
-        propertyData.images = editingProperty.images;
-      } else {
-        propertyData.images = ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000'];
-      }
 
       console.log('Attempting to save property:', propertyData);
 
@@ -525,6 +553,7 @@ export default function AgentDashboard() {
       sqft: property.sqft.toString(),
       amenities: property.amenities || [],
     });
+    setSelectedFiles(property.images);
     setPreviews(property.images);
     setShowUploadModal(true);
   };
@@ -629,12 +658,35 @@ export default function AgentDashboard() {
               </button>
             </div>
             {(profile?.status === 'approved' || profile?.role === 'admin') ? (
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200"
-              >
-                <Plus className="h-5 w-5" /> Upload Property
-              </button>
+              <div className="relative group">
+                <button
+                  onClick={() => {
+                    const currentListingCount = getCurrentListingCount();
+                    const maxListings = planDetails?.limits?.properties || 0;
+                    if (profile?.role !== 'admin' && maxListings !== -1 && currentListingCount >= maxListings) {
+                      setStatusMessage({ 
+                        type: 'error', 
+                        text: `You have reached the listing limit for your ${profile?.subscription_plan} plan (${maxListings} properties). Please upgrade your plan to list more.` 
+                      });
+                      return;
+                    }
+                    setShowUploadModal(true);
+                  }}
+                  className={cn(
+                    "px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg",
+                    profile?.role !== 'admin' && planDetails?.limits?.properties !== -1 && getCurrentListingCount() >= (planDetails?.limits?.properties || 0)
+                      ? "bg-gray-400 text-white cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200"
+                  )}
+                >
+                  <Plus className="h-5 w-5" /> Upload Property
+                </button>
+                {profile?.role !== 'admin' && planDetails?.limits?.properties !== -1 && getCurrentListingCount() >= (planDetails?.limits?.properties || 0) && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    Listing limit reached
+                  </div>
+                )}
+              </div>
             ) : profile?.status === 'suspended' ? (
               <div className="bg-gray-100 text-gray-400 px-8 py-4 rounded-xl font-bold flex items-center gap-2 cursor-not-allowed border border-gray-200">
                 <AlertTriangle className="h-5 w-5" /> Upload Disabled
@@ -702,11 +754,18 @@ export default function AgentDashboard() {
                     </div>
                     <p className="text-gray-500 font-medium">Your subscription limits and current usage (including deleted listings)</p>
                   </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <Link
+                      to="/pricing"
+                      className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center gap-2"
+                    >
+                      <CreditCard className="h-4 w-4" /> Manage Plan
+                    </Link>
                     <div className="flex flex-wrap gap-4">
                       <div className="px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Listings Limit</p>
                         <div className="flex items-end gap-2">
-                          <span className="text-2xl font-black text-gray-900">{properties.length}</span>
+                          <span className="text-2xl font-black text-gray-900">{getCurrentListingCount()}</span>
                           <span className="text-gray-400 font-bold mb-1">/ {planDetails.limits?.properties === -1 ? '∞' : (planDetails.limits?.properties || 0)}</span>
                         </div>
                       </div>
@@ -719,23 +778,24 @@ export default function AgentDashboard() {
                       </div>
                     </div>
                   </div>
+                </div>
                   
                   {/* Progress Bar */}
                   {planDetails.limits?.properties !== -1 && (
                     <div className="mt-8">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-bold text-gray-700">Listings Usage</span>
+                        <span className="text-sm font-bold text-gray-700">Listings Usage (Current Cycle)</span>
                         <span className="text-sm font-bold text-blue-600">
-                          {Math.round((properties.length / (planDetails.limits?.properties || 1)) * 100)}%
+                          {Math.round((getCurrentListingCount() / (planDetails.limits?.properties || 1)) * 100)}%
                         </span>
                       </div>
                       <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
                         <motion.div 
                           initial={{ width: 0 }}
-                          animate={{ width: `${Math.min((properties.length / (planDetails.limits?.properties || 1)) * 100, 100)}%` }}
+                          animate={{ width: `${Math.min((getCurrentListingCount() / (planDetails.limits?.properties || 1)) * 100, 100)}%` }}
                           className={cn(
                             "h-full transition-all duration-1000",
-                            (properties.length / (planDetails.limits?.properties || 1)) >= 0.9 ? "bg-red-500" : "bg-blue-600"
+                            (getCurrentListingCount() / (planDetails.limits?.properties || 1)) >= 0.9 ? "bg-red-500" : "bg-blue-600"
                           )}
                         />
                       </div>
@@ -968,7 +1028,7 @@ export default function AgentDashboard() {
                     <div>
                       <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Plan: {planDetails.name}</p>
                       <p className="text-sm font-bold text-gray-700">
-                        {properties.length} / {planDetails.limits?.properties || '∞'} Listings used
+                        {getCurrentListingCount()} / {planDetails.limits?.properties || '∞'} Listings used (Current Cycle)
                       </p>
                     </div>
                   </div>
@@ -1178,7 +1238,18 @@ export default function AgentDashboard() {
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-4">Property Images</label>
+                <label className="block text-sm font-bold text-gray-700 mb-4">
+                  Property Images {planDetails && (
+                    <span className={cn(
+                      "ml-2 text-xs font-bold px-2 py-0.5 rounded-full",
+                      planDetails.limits?.images_per_property !== -1 && previews.length >= planDetails.limits?.images_per_property
+                        ? "bg-red-100 text-red-600"
+                        : "bg-blue-100 text-blue-600"
+                    )}>
+                      {previews.length} / {planDetails.limits?.images_per_property === -1 ? '∞' : planDetails.limits?.images_per_property}
+                    </span>
+                  )}
+                </label>
                 
                 {/* Image Previews */}
                 {previews.length > 0 && (

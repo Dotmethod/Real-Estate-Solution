@@ -832,7 +832,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
                 </div>
               </div>
               <div className="text-right w-full sm:w-auto">
-                <span className="text-xl font-black text-gray-900 block">{plan?.name || user?.subscription_plan || 'New Comers'}</span>
+                <span className="text-xl font-black text-gray-900 block">{plan?.name || user?.subscription_plan || 'Starter Plan'}</span>
                 <Link to="/pricing" className="text-blue-600 text-sm font-bold hover:underline mt-1">Upgrade Plan</Link>
               </div>
             </div>

@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
 import { supabase } from '../lib/supabase';
 import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
+import axios from 'axios';
 
 interface UserProfile {
   id: string;
@@ -159,12 +160,28 @@ export default function AdminDashboard() {
 
   const updateUserStatus = async (id: string, status: string) => {
     try {
+      const user = users.find(u => u.id === id);
+      const oldStatus = user?.status;
+
       const { error } = await supabase
         .from('profiles')
         .update({ status })
         .eq('id', id);
       
       if (error) throw error;
+
+      // Send approval email if status changed to approved
+      if (status === 'approved' && oldStatus !== 'approved' && user?.email) {
+        try {
+          await axios.post('/api/send-approval-email', {
+            email: user.email,
+            name: user.full_name
+          });
+        } catch (emailError) {
+          console.error('Failed to send approval email:', emailError);
+        }
+      }
+
       setUsers(users.map(u => u.id === id ? { ...u, status } : u));
     } catch (error) {
       console.error('Error updating user status:', error);
@@ -175,19 +192,35 @@ export default function AdminDashboard() {
     setEditingUserId(user.id);
     setEditForm({ 
       role: user.role, 
-      subscription_plan: user.subscription_plan || 'New Comers',
+      subscription_plan: user.subscription_plan || 'Starter Plan',
       status: user.status || 'pending'
     });
   };
 
   const handleSaveEdit = async (id: string) => {
     try {
+      const user = users.find(u => u.id === id);
+      const oldStatus = user?.status;
+
       const { error } = await supabase
         .from('profiles')
         .update(editForm)
         .eq('id', id);
       
       if (error) throw error;
+
+      // Send approval email if status changed to approved
+      if (editForm.status === 'approved' && oldStatus !== 'approved' && user?.email) {
+        try {
+          await axios.post('/api/send-approval-email', {
+            email: user.email,
+            name: user.full_name
+          });
+        } catch (emailError) {
+          console.error('Failed to send approval email:', emailError);
+        }
+      }
+
       setUsers(users.map(u => u.id === id ? { ...u, ...editForm } : u));
       setEditingUserId(null);
     } catch (error) {
@@ -649,7 +682,7 @@ export default function AdminDashboard() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm text-gray-600 capitalize">{user.subscription_plan || 'New Comers'}</span>
+                        <span className="text-sm text-gray-600 capitalize">{user.subscription_plan || 'Starter Plan'}</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
