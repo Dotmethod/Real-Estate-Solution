@@ -80,6 +80,7 @@ export default function AdminDashboard() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [customAmenity, setCustomAmenity] = useState('');
   const [propertyStatusMessage, setPropertyStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+  const [isFeaturedOnly, setIsFeaturedOnly] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -219,6 +220,21 @@ export default function AdminDashboard() {
       setProperties(properties.map(p => p.id === id ? { ...p, status: 'rejected' } : p));
     } catch (error) {
       console.error('Error rejecting property:', error);
+    }
+  };
+
+  const toggleFeatured = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ is_featured: !currentStatus })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setProperties(properties.map(p => p.id === id ? { ...p, is_featured: !currentStatus } : p));
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      alert('Failed to update featured status. Please ensure the "is_featured" column exists in your properties table.');
     }
   };
 
@@ -531,6 +547,22 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {activeTab === 'properties' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsFeaturedOnly(!isFeaturedOnly)}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
+                isFeaturedOnly ? "bg-yellow-50 border-yellow-200 text-yellow-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              {isFeaturedOnly ? "Showing Featured Only" : "Show All Properties"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'users' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -731,11 +763,13 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {properties.map((property) => (
+            {properties
+              .filter(p => !isFeaturedOnly || p.is_featured)
+              .map((property) => (
               <div key={property.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm flex flex-col">
                 <div className="relative h-48">
                   <img src={property.images[0]} alt={property.title} className="w-full h-full object-cover" />
-                  <div className="absolute top-4 right-4">
+                  <div className="absolute top-4 right-4 flex flex-col gap-2">
                     <span className={cn(
                       "px-3 py-1 rounded-full text-xs font-bold uppercase",
                       property.status === 'approved' ? "bg-green-600 text-white" : 
@@ -745,6 +779,11 @@ export default function AdminDashboard() {
                     )}>
                       {property.status}
                     </span>
+                    {property.is_featured && (
+                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-yellow-400 text-yellow-900 flex items-center gap-1">
+                        Featured
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="p-6 flex-1 flex flex-col">
@@ -760,6 +799,17 @@ export default function AdminDashboard() {
                       className="py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all text-xs flex items-center justify-center gap-1 col-span-2"
                     >
                       <Edit2 className="h-3 w-3" /> Edit Property Details
+                    </button>
+                    <button
+                      onClick={() => toggleFeatured(property.id, property.is_featured)}
+                      className={cn(
+                        "py-2 rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-1 col-span-2 border",
+                        property.is_featured 
+                          ? "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100" 
+                          : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                      )}
+                    >
+                      {property.is_featured ? "Remove from Featured" : "Mark as Featured"}
                     </button>
                     {property.status !== 'approved' && (
                       <button

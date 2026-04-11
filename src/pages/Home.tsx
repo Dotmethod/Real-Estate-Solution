@@ -6,11 +6,14 @@ import PropertyCard from '../components/PropertyCard';
 import PricingCard from '../components/PricingCard';
 import { supabase } from '../lib/supabase';
 import { SubscriptionPlan } from '../types';
+import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
 
 export default function Home() {
   const [properties, setProperties] = useState<any[]>([]);
+  const [featuredProperties, setFeaturedProperties] = useState<any[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLocation, setSearchLocation] = useState('');
@@ -20,8 +23,51 @@ export default function Home() {
 
   useEffect(() => {
     fetchProperties();
+    fetchFeaturedProperties();
     fetchPlans();
   }, []);
+
+  const fetchFeaturedProperties = async () => {
+    try {
+      const { data: propertiesData, error: propertiesError } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('status', 'approved')
+        .eq('is_featured', true)
+        .limit(6)
+        .order('created_at', { ascending: false });
+      
+      if (propertiesError) throw propertiesError;
+
+      if (propertiesData && propertiesData.length > 0) {
+        const agentIds = [...new Set(propertiesData.map(p => p.agent_id))].filter(Boolean);
+        if (agentIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', agentIds);
+          
+          if (profilesError) throw profilesError;
+
+          const propertiesWithProfiles = propertiesData.map(property => ({
+            ...property,
+            profiles: profilesData.find(profile => profile.id === property.agent_id)
+          }));
+
+          setFeaturedProperties(propertiesWithProfiles);
+        } else {
+          setFeaturedProperties(propertiesData);
+        }
+      } else {
+        setFeaturedProperties([]);
+      }
+    } catch (error) {
+      console.error('Error fetching featured properties:', error);
+      setFeaturedProperties([]);
+    } finally {
+      setIsLoadingFeatured(false);
+    }
+  };
 
   const fetchPlans = async () => {
     try {
@@ -137,10 +183,9 @@ export default function Home() {
                   className="w-full py-4 focus:outline-none text-gray-900 bg-transparent"
                 >
                   <option value="">All Locations</option>
-                  <option value="Lagos">Lagos</option>
-                  <option value="Abuja">Abuja</option>
-                  <option value="Port Harcourt">Port Harcourt</option>
-                  <option value="Ibadan">Ibadan</option>
+                  {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
+                    <option key={state} value={state}>{state}</option>
+                  ))}
                 </select>
               </div>
               <div className="flex-1 flex items-center px-4 gap-3 border-r border-gray-100">
@@ -176,6 +221,34 @@ export default function Home() {
               </button>
             </form>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Featured Properties Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-end mb-12">
+            <div>
+              <h2 className="text-4xl font-black text-gray-900 mb-4">Featured <span className="text-blue-600 italic">Listings</span></h2>
+              <p className="text-gray-600">Hand-picked premium properties for you.</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {isLoadingFeatured ? (
+              [1, 2, 3].map((i) => (
+                <div key={i} className="h-[400px] bg-gray-100 rounded-3xl animate-pulse"></div>
+              ))
+            ) : featuredProperties.length > 0 ? (
+              featuredProperties.map((property) => (
+                <PropertyCard key={property.id} property={property} />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12 text-gray-500 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                <p>No featured properties at the moment.</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

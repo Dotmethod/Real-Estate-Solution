@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import PropertyCard from '../components/PropertyCard';
 import { Search, MapPin, Building2, DollarSign, X } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
 
 const Properties = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -143,10 +144,9 @@ const Properties = () => {
               className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
             >
               <option value="">All Locations</option>
-              <option value="Lagos">Lagos</option>
-              <option value="Abuja">Abuja</option>
-              <option value="Port Harcourt">Port Harcourt</option>
-              <option value="Ibadan">Ibadan</option>
+              {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
+                <option key={state} value={state}>{state}</option>
+              ))}
             </select>
           </div>
 

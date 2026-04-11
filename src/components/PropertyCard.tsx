@@ -29,12 +29,17 @@ export default function PropertyCard({ property }: PropertyCardProps) {
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute top-4 left-4">
+          <div className="absolute top-4 left-4 flex flex-col gap-2">
             <span className={cn(
               "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg bg-blue-600 text-white"
             )}>
               {property.type || 'Property'}
             </span>
+            {property.is_featured && (
+              <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg bg-yellow-400 text-yellow-900 flex items-center gap-1">
+                Featured
+              </span>
+            )}
           </div>
           {property.listing_status && (
             <div className="absolute top-4 right-4">
