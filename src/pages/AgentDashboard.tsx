@@ -5,6 +5,7 @@ import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
 import { supabase } from '../lib/supabase';
+import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
 
 interface Property {
   id: string;
@@ -16,6 +17,7 @@ interface Property {
   baths: number;
   sqft: number;
   type: string;
+  listing_status: string;
   status: string;
   images: string[];
   agent_id: string;
@@ -53,7 +55,10 @@ export default function AgentDashboard() {
     title: '',
     price: '',
     location: '',
+    state: '',
+    lga: '',
     type: 'house',
+    listing_status: 'sale',
     description: '',
     beds: '',
     baths: '',
@@ -250,7 +255,8 @@ export default function AgentDashboard() {
 
     // Check subscription limits
     if (profile?.role !== 'admin') {
-      const currentListingCount = properties.length;
+      const activeProperties = properties.filter(p => p.status !== 'deleted');
+      const currentListingCount = activeProperties.length;
       const maxListings = planDetails?.limits?.properties || 0;
       const maxImages = planDetails?.limits?.images_per_property || 5; // Default to 5 if not loaded
 
@@ -363,12 +369,17 @@ export default function AgentDashboard() {
       }
 
       setUploadStatus('Saving property details...');
+      
+      // Combine area, lga and state for the final location string
+      const finalLocation = `${formData.location.trim()}, ${formData.lga}, ${formData.state}`;
+      
       const propertyData: any = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
-        location: formData.location.trim(),
+        location: finalLocation,
         type: formData.type,
+        listing_status: formData.listing_status,
         beds: parseInt(formData.beds) || 0,
         baths: parseInt(formData.baths) || 0,
         sqft: parseInt(formData.sqft) || 0,
@@ -426,7 +437,10 @@ export default function AgentDashboard() {
           title: '',
           price: '',
           location: '',
+          state: '',
+          lga: '',
           type: 'house',
+          listing_status: 'sale',
           description: '',
           beds: '',
           baths: '',
@@ -455,6 +469,19 @@ export default function AgentDashboard() {
     return diffInHours <= 1;
   };
 
+  const getTimeRemaining = (createdAt: string) => {
+    const createdDate = new Date(createdAt);
+    const expiryDate = new Date(createdDate.getTime() + 60 * 60 * 1000);
+    const now = new Date();
+    const diffInMs = expiryDate.getTime() - now.getTime();
+    
+    if (diffInMs <= 0) return null;
+    
+    const minutes = Math.floor(diffInMs / (1000 * 60));
+    const seconds = Math.floor((diffInMs % (1000 * 60)) / 1000);
+    return `${minutes}m ${seconds}s`;
+  };
+
   const handleEdit = (property: Property) => {
     if (!isEditable(property.created_at)) {
       setStatusMessage({ 
@@ -464,11 +491,34 @@ export default function AgentDashboard() {
       return;
     }
     setEditingProperty(property);
+    
+    // Try to parse location into state, lga and specific area
+    let state = '';
+    let lga = '';
+    let area = property.location;
+    
+    if (property.location.includes(',')) {
+      const parts = property.location.split(',').map(p => p.trim());
+      if (parts.length >= 3) {
+        area = parts[0];
+        lga = parts[1];
+        state = parts[2];
+      } else if (parts.length === 2) {
+        // Fallback for older format or partial data
+        lga = parts[0];
+        state = parts[1];
+        area = '';
+      }
+    }
+
     setFormData({
       title: property.title,
       price: property.price.toString(),
-      location: property.location,
+      location: area,
+      state: state,
+      lga: lga,
       type: property.type,
+      listing_status: property.listing_status || 'sale',
       description: property.description,
       beds: property.beds.toString(),
       baths: property.baths.toString(),
@@ -480,6 +530,7 @@ export default function AgentDashboard() {
   };
 
   const handleDelete = async (id: string) => {
+    setStatusMessage(null);
     try {
       const { error } = await supabase
         .from('properties')
@@ -491,9 +542,11 @@ export default function AgentDashboard() {
       // Refresh properties to reflect the status change
       fetchProperties();
       setShowDeleteConfirm(null);
+      setStatusMessage({ type: 'success', text: 'Property deleted successfully.' });
     } catch (error: any) {
       console.error('Error deleting property:', error);
-      alert('Failed to delete property: ' + error.message);
+      setStatusMessage({ type: 'error', text: 'Failed to delete property: ' + error.message });
+      setShowDeleteConfirm(null);
     }
   };
 
@@ -589,6 +642,22 @@ export default function AgentDashboard() {
             ) : null}
           </div>
         </div>
+
+        {statusMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn(
+              "mb-8 p-4 rounded-2xl font-bold text-sm flex items-center justify-between",
+              statusMessage.type === 'success' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+            )}
+          >
+            <span>{statusMessage.text}</span>
+            <button onClick={() => setStatusMessage(null)} className="p-1 hover:bg-black/5 rounded-full transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        )}
 
         {activeTab === 'overview' && (
           <>
@@ -770,17 +839,24 @@ export default function AgentDashboard() {
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-2">
                             {isEditable(property.created_at) ? (
-                              <button 
-                                onClick={() => handleEdit(property)}
-                                disabled={profile?.status === 'suspended'}
-                                className={cn(
-                                  "p-2 rounded-lg transition-colors",
-                                  profile?.status === 'suspended' ? "bg-gray-50 text-gray-300 cursor-not-allowed" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                              <div className="flex flex-col items-end gap-1">
+                                <button 
+                                  onClick={() => handleEdit(property)}
+                                  disabled={profile?.status === 'suspended'}
+                                  className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    profile?.status === 'suspended' ? "bg-gray-50 text-gray-300 cursor-not-allowed" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                                  )}
+                                  title={profile?.status === 'suspended' ? "Account Suspended" : "Edit"}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                {profile?.role !== 'admin' && (
+                                  <span className="text-[10px] font-bold text-orange-500 whitespace-nowrap">
+                                    {getTimeRemaining(property.created_at)} left
+                                  </span>
                                 )}
-                                title={profile?.status === 'suspended' ? "Account Suspended" : "Edit"}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
+                              </div>
                             ) : (
                               <div 
                                 className="p-2 rounded-lg bg-gray-50 text-gray-300 cursor-not-allowed"
@@ -932,17 +1008,46 @@ export default function AgentDashboard() {
                     placeholder="e.g. 50000000" 
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Location</label>
-                  <div className="relative mb-4">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input 
-                      type="text" 
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
-                      placeholder="e.g. Lekki, Lagos" 
-                    />
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">State</label>
+                    <select
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value, lga: '' })}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all"
+                    >
+                      <option value="">Select State</option>
+                      {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">LGA</label>
+                    <select
+                      value={formData.lga}
+                      onChange={(e) => setFormData({ ...formData, lga: e.target.value })}
+                      disabled={!formData.state}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select LGA</option>
+                      {formData.state && NIGERIA_STATES_LGA[formData.state]?.sort().map(lga => (
+                        <option key={lga} value={lga}>{lga}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Area / Street Address</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input 
+                        type="text" 
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                        placeholder="e.g. 123 Main Street" 
+                      />
+                    </div>
                   </div>
                 </div>
                 <div>
@@ -952,10 +1057,23 @@ export default function AgentDashboard() {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all"
                   >
-                    <option value="house">House</option>
                     <option value="apartment">Apartment</option>
-                    <option value="condo">Condo</option>
+                    <option value="house">House</option>
                     <option value="land">Land</option>
+                    <option value="commercial">Commercial</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Listing Status</label>
+                  <select 
+                    value={formData.listing_status}
+                    onChange={(e) => setFormData({ ...formData, listing_status: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all"
+                  >
+                    <option value="sale">For Sale</option>
+                    <option value="rent">For Rent</option>
+                    <option value="lease">For Lease</option>
+                    <option value="short-let">Short Let</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-3 gap-4">

@@ -16,15 +16,15 @@ export interface Property {
   description: string;
   price: number;
   location: string;
-  bedrooms: number;
-  bathrooms: number;
-  area: number;
-  type: 'sale' | 'rent';
-  category: 'apartment' | 'house' | 'land' | 'commercial';
+  beds: number;
+  baths: number;
+  sqft: number;
+  type: string;
+  listing_status: string;
   images: string[];
-  ownerId: string;
-  status: 'pending' | 'approved' | 'sold' | 'rented';
-  createdAt: string;
+  agent_id: string;
+  status: 'pending' | 'approved' | 'sold' | 'rented' | 'deleted';
+  created_at: string;
   amenities?: string[];
 }
 

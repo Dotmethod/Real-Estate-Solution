@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,15 +16,19 @@ export default function Login() {
   useEffect(() => {
     const checkSession = async () => {
       if (searchParams.get('reset') === 'true') {
-        supabase.auth.signOut().catch(() => {});
+        // Force a clean slate
+        await supabase.auth.signOut().catch(() => {});
         localStorage.clear();
         sessionStorage.clear();
         setInfoMessage('Session has been reset. You can now log in again.');
-        // Remove the reset param from URL without refreshing
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
+        
+        // Remove the reset param from URL
+        setSearchParams({}, { replace: true });
         return;
       }
+
+      // If we are resetting, don't check session yet
+      if (searchParams.get('reset') === 'true') return;
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {

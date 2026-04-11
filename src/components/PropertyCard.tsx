@@ -36,6 +36,19 @@ export default function PropertyCard({ property }: PropertyCardProps) {
               {property.type || 'Property'}
             </span>
           </div>
+          {property.listing_status && (
+            <div className="absolute top-4 right-4">
+              <span className={cn(
+                "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg",
+                property.listing_status === 'sale' ? "bg-green-600 text-white" :
+                property.listing_status === 'rent' ? "bg-orange-500 text-white" :
+                property.listing_status === 'lease' ? "bg-purple-600 text-white" :
+                "bg-gray-900 text-white"
+              )}>
+                For {property.listing_status}
+              </span>
+            </div>
+          )}
         </div>
         
         <div className="p-6 flex-1 flex flex-col">

@@ -15,6 +15,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLocation, setSearchLocation] = useState('');
   const [searchType, setSearchType] = useState('');
+  const [searchListingStatus, setSearchListingStatus] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function Home() {
     if (searchQuery) params.append('q', searchQuery);
     if (searchLocation) params.append('location', searchLocation);
     if (searchType) params.append('type', searchType);
+    if (searchListingStatus) params.append('listingStatus', searchListingStatus);
     navigate(`/properties?${params.toString()}`);
   };
 
@@ -141,7 +143,7 @@ export default function Home() {
                   <option value="Ibadan">Ibadan</option>
                 </select>
               </div>
-              <div className="flex-1 flex items-center px-4 gap-3">
+              <div className="flex-1 flex items-center px-4 gap-3 border-r border-gray-100">
                 <Building2 className="text-gray-400 h-5 w-5" />
                 <select 
                   value={searchType}
@@ -153,6 +155,20 @@ export default function Home() {
                   <option value="apartment">Apartment</option>
                   <option value="land">Land</option>
                   <option value="office">Office</option>
+                </select>
+              </div>
+              <div className="flex-1 flex items-center px-4 gap-3">
+                <Building2 className="text-gray-400 h-5 w-5" />
+                <select 
+                  value={searchListingStatus}
+                  onChange={(e) => setSearchListingStatus(e.target.value)}
+                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent"
+                >
+                  <option value="">All Status</option>
+                  <option value="sale">For Sale</option>
+                  <option value="rent">For Rent</option>
+                  <option value="lease">For Lease</option>
+                  <option value="short-let">Short Let</option>
                 </select>
               </div>
               <button type="submit" className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2">

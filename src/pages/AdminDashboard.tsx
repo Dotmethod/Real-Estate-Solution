@@ -5,6 +5,7 @@ import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
 import { supabase } from '../lib/supabase';
+import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
 
 interface UserProfile {
   id: string;
@@ -63,7 +64,10 @@ export default function AdminDashboard() {
     title: '',
     price: '',
     location: '',
+    state: '',
+    lga: '',
     type: 'house',
+    listing_status: 'sale',
     description: '',
     beds: '',
     baths: '',
@@ -219,16 +223,16 @@ export default function AdminDashboard() {
   };
 
   const deleteProperty = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this property? This action cannot be undone.')) return;
+    if (!window.confirm('Are you sure you want to delete this property? It will be marked as deleted.')) return;
     
     try {
       const { error } = await supabase
         .from('properties')
-        .delete()
+        .update({ status: 'deleted' })
         .eq('id', id);
       
       if (error) throw error;
-      setProperties(properties.filter(p => p.id !== id));
+      setProperties(properties.map(p => p.id === id ? { ...p, status: 'deleted' } : p));
     } catch (error) {
       console.error('Error deleting property:', error);
     }
@@ -315,11 +319,33 @@ export default function AdminDashboard() {
   // Property Management Functions
   const handleEditProperty = (property: any) => {
     setEditingProperty(property);
+    
+    // Try to parse location into state, lga and specific area
+    let state = '';
+    let lga = '';
+    let area = property.location;
+    
+    if (property.location.includes(',')) {
+      const parts = property.location.split(',').map(p => p.trim());
+      if (parts.length >= 3) {
+        area = parts[0];
+        lga = parts[1];
+        state = parts[2];
+      } else if (parts.length === 2) {
+        lga = parts[0];
+        state = parts[1];
+        area = '';
+      }
+    }
+
     setPropertyForm({
       title: property.title,
       price: property.price.toString(),
-      location: property.location,
+      location: area,
+      state: state,
+      lga: lga,
       type: property.type,
+      listing_status: property.listing_status || 'sale',
       description: property.description,
       beds: property.beds.toString(),
       baths: property.baths.toString(),
@@ -395,13 +421,16 @@ export default function AdminDashboard() {
       }
 
       // 3. Update property in database
+      const finalLocation = `${propertyForm.location.trim()}, ${propertyForm.lga}, ${propertyForm.state}`;
+
       const { error } = await supabase
         .from('properties')
         .update({
           title: propertyForm.title,
           price: parseFloat(propertyForm.price),
-          location: propertyForm.location,
+          location: finalLocation,
           type: propertyForm.type,
+          listing_status: propertyForm.listing_status,
           description: propertyForm.description,
           beds: parseInt(propertyForm.beds) || 0,
           baths: parseInt(propertyForm.baths) || 0,
@@ -748,12 +777,14 @@ export default function AdminDashboard() {
                         <XCircle className="h-3 w-3" /> Reject
                       </button>
                     )}
-                    <button
-                      onClick={() => deleteProperty(property.id)}
-                      className="py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all text-xs flex items-center justify-center gap-1 col-span-2"
-                    >
-                      <Trash2 className="h-3 w-3" /> Delete Permanently
-                    </button>
+                    {property.status !== 'deleted' && (
+                      <button
+                        onClick={() => deleteProperty(property.id)}
+                        className="py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all text-xs flex items-center justify-center gap-1 col-span-2"
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete Property
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1054,16 +1085,45 @@ export default function AdminDashboard() {
                     placeholder="e.g. 500000"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700 ml-1">Location</label>
-                  <input
-                    type="text"
-                    required
-                    value={propertyForm.location}
-                    onChange={(e) => setPropertyForm({ ...propertyForm, location: e.target.value })}
-                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
-                    placeholder="e.g. Beverly Hills, CA"
-                  />
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="text-sm font-bold text-gray-700 ml-1">State</label>
+                    <select
+                      value={propertyForm.state}
+                      onChange={(e) => setPropertyForm({ ...propertyForm, state: e.target.value, lga: '' })}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                    >
+                      <option value="">Select State</option>
+                      {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-gray-700 ml-1">LGA</label>
+                    <select
+                      value={propertyForm.lga}
+                      onChange={(e) => setPropertyForm({ ...propertyForm, lga: e.target.value })}
+                      disabled={!propertyForm.state}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all disabled:opacity-50"
+                    >
+                      <option value="">Select LGA</option>
+                      {propertyForm.state && NIGERIA_STATES_LGA[propertyForm.state]?.sort().map(lga => (
+                        <option key={lga} value={lga}>{lga}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-gray-700 ml-1">Area / Street Address</label>
+                    <input
+                      type="text"
+                      required
+                      value={propertyForm.location}
+                      onChange={(e) => setPropertyForm({ ...propertyForm, location: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                      placeholder="e.g. 123 Main Street"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700 ml-1">Property Type</label>
@@ -1072,11 +1132,23 @@ export default function AdminDashboard() {
                     onChange={(e) => setPropertyForm({ ...propertyForm, type: e.target.value })}
                     className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
                   >
-                    <option value="house">House</option>
                     <option value="apartment">Apartment</option>
-                    <option value="villa">Villa</option>
-                    <option value="condo">Condo</option>
+                    <option value="house">House</option>
                     <option value="land">Land</option>
+                    <option value="commercial">Commercial</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Listing Status</label>
+                  <select
+                    value={propertyForm.listing_status}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, listing_status: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                  >
+                    <option value="sale">For Sale</option>
+                    <option value="rent">For Rent</option>
+                    <option value="lease">For Lease</option>
+                    <option value="short-let">Short Let</option>
                   </select>
                 </div>
               </div>

@@ -15,6 +15,7 @@ const Properties = () => {
   const [q, setQ] = useState(searchParams.get('q') || '');
   const [location, setLocation] = useState(searchParams.get('location') || '');
   const [type, setType] = useState(searchParams.get('type') || '');
+  const [listingStatus, setListingStatus] = useState(searchParams.get('listingStatus') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
 
   useEffect(() => {
@@ -33,6 +34,7 @@ const Properties = () => {
       const qParam = searchParams.get('q');
       const locationParam = searchParams.get('location');
       const typeParam = searchParams.get('type');
+      const listingStatusParam = searchParams.get('listingStatus');
       const maxPriceParam = searchParams.get('maxPrice');
 
       if (qParam) {
@@ -43,6 +45,9 @@ const Properties = () => {
       }
       if (typeParam) {
         query = query.eq('type', typeParam);
+      }
+      if (listingStatusParam) {
+        query = query.eq('listing_status', listingStatusParam);
       }
       if (maxPriceParam) {
         query = query.lte('price', parseInt(maxPriceParam));
@@ -85,6 +90,7 @@ const Properties = () => {
     if (q) params.q = q;
     if (location) params.location = location;
     if (type) params.type = type;
+    if (listingStatus) params.listingStatus = listingStatus;
     if (maxPrice) params.maxPrice = maxPrice;
     setSearchParams(params);
   };
@@ -93,6 +99,7 @@ const Properties = () => {
     setQ('');
     setLocation('');
     setType('');
+    setListingStatus('');
     setMaxPrice('');
     setSearchParams({});
   };
@@ -105,7 +112,7 @@ const Properties = () => {
             <h1 className="text-4xl font-black text-gray-900 mb-4">All Properties</h1>
             <p className="text-gray-600">Browse through our verified listings across Nigeria.</p>
           </div>
-          {(q || location || type || maxPrice) && (
+          {(q || location || type || listingStatus || maxPrice) && (
             <button 
               onClick={clearFilters}
               className="flex items-center gap-2 text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
@@ -116,7 +123,7 @@ const Properties = () => {
         </div>
 
         {/* Search & Filter Bar */}
-        <form onSubmit={handleFilter} className="bg-white p-4 rounded-3xl shadow-xl border border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <form onSubmit={handleFilter} className="bg-white p-4 rounded-3xl shadow-xl border border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input 
@@ -151,10 +158,25 @@ const Properties = () => {
               className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
             >
               <option value="">All Types</option>
-              <option value="house">House</option>
               <option value="apartment">Apartment</option>
+              <option value="house">House</option>
               <option value="land">Land</option>
-              <option value="office">Office</option>
+              <option value="commercial">Commercial</option>
+            </select>
+          </div>
+
+          <div className="relative">
+            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <select 
+              value={listingStatus}
+              onChange={(e) => setListingStatus(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
+            >
+              <option value="">All Status</option>
+              <option value="sale">For Sale</option>
+              <option value="rent">For Rent</option>
+              <option value="lease">For Lease</option>
+              <option value="short-let">Short Let</option>
             </select>
           </div>
 

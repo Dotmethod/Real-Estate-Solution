@@ -17,6 +17,30 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const checkSession = async () => {
+      // If we are resetting password, we might be "half-logged in" by Supabase
+      // but we only want to redirect if they are fully authenticated and NOT trying to reset
+      if (!token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile?.role === 'admin') {
+            navigate('/admin');
+          } else {
+            navigate('/dashboard');
+          }
+        }
+      }
+    };
+    checkSession();
+  }, [navigate, token]);
+
+  useEffect(() => {
     if (!token) {
       setError('Invalid or expired reset link. Please request a new one.');
     }

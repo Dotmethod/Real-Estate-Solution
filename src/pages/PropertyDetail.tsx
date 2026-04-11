@@ -111,13 +111,23 @@ export default function PropertyDetail() {
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute top-8 left-8">
+              <div className="absolute top-8 left-8 flex gap-3">
                 <span className={cn(
-                  "px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl",
-                  property.type === 'sale' ? "bg-blue-600 text-white" : "bg-green-600 text-white"
+                  "px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl bg-blue-600 text-white"
                 )}>
-                  For {property.type}
+                  {property.type || 'Property'}
                 </span>
+                {property.listing_status && (
+                  <span className={cn(
+                    "px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl",
+                    property.listing_status === 'sale' ? "bg-green-600 text-white" :
+                    property.listing_status === 'rent' ? "bg-orange-500 text-white" :
+                    property.listing_status === 'lease' ? "bg-purple-600 text-white" :
+                    "bg-gray-900 text-white"
+                  )}>
+                    For {property.listing_status}
+                  </span>
+                )}
               </div>
             </div>
 

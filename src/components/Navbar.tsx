@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -43,19 +44,29 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     console.log('Logout initiated');
-    // Clear local storage immediately to prevent stale state
-    localStorage.clear();
-    sessionStorage.clear();
+    setIsLoading(true);
     
     try {
-      // Attempt to sign out but don't wait for it if it hangs
-      supabase.auth.signOut().catch(err => console.error('SignOut error:', err));
+      // 1. Sign out from Supabase first (this clears internal state and storage keys)
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // 2. Clear everything else just to be safe
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // 3. Redirect to login
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
+      // Fallback: force clear and hard reload if signOut fails
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/login?reset=true';
+    } finally {
+      setIsLoading(false);
+      setIsOpen(false);
     }
-
-    // Force a hard reload to the login page with reset flag
-    window.location.href = '/login?reset=true';
   };
 
   const navLinks = [
@@ -105,11 +116,12 @@ export default function Navbar() {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="text-sm font-medium text-red-600 hover:text-red-700 flex items-center gap-1"
+                  disabled={isLoading}
+                  className="text-sm font-medium text-red-600 hover:text-red-700 flex items-center gap-1 disabled:opacity-50"
                   title="Logout"
                 >
                   <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
+                  <span>{isLoading ? 'Logging out...' : 'Logout'}</span>
                 </button>
               </div>
             ) : (
@@ -167,10 +179,11 @@ export default function Navbar() {
                 </Link>
                 <button
                   onClick={() => { handleLogout(); setIsOpen(false); }}
-                  className="block w-full text-left px-3 py-2 text-base font-medium text-red-600 hover:text-red-700 flex items-center gap-2"
+                  disabled={isLoading}
+                  className="block w-full text-left px-3 py-2 text-base font-medium text-red-600 hover:text-red-700 flex items-center gap-2 disabled:opacity-50"
                 >
                   <LogOut className="h-5 w-5" />
-                  Logout
+                  {isLoading ? 'Logging out...' : 'Logout'}
                 </button>
               </>
             ) : (
