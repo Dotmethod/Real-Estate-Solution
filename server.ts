@@ -60,10 +60,22 @@ async function startServer() {
 
   // Email Approval Endpoint
   app.post('/api/send-approval-email', async (req, res) => {
-    const { email, name } = req.body;
+    const { userId, email, name } = req.body;
 
     if (!email || !name) {
       return res.status(400).json({ error: 'Email and name are required' });
+    }
+
+    // Update user metadata with approval timestamp
+    if (userId) {
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          user_metadata: { approved_at: new Date().toISOString() }
+        });
+        console.log(`Updated approved_at for user ${userId}`);
+      } catch (metaError) {
+        console.error('Error updating approval metadata:', metaError);
+      }
     }
 
     if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {

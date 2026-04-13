@@ -174,6 +174,7 @@ export default function AdminDashboard() {
       if (status === 'approved' && oldStatus !== 'approved' && user?.email) {
         try {
           await axios.post('/api/send-approval-email', {
+            userId: id,
             email: user.email,
             name: user.full_name
           });
@@ -213,6 +214,7 @@ export default function AdminDashboard() {
       if (editForm.status === 'approved' && oldStatus !== 'approved' && user?.email) {
         try {
           await axios.post('/api/send-approval-email', {
+            userId: id,
             email: user.email,
             name: user.full_name
           });

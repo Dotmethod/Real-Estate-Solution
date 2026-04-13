@@ -575,6 +575,30 @@ export default function AgentDashboard() {
     }
   };
 
+  const isRecentlyApproved = () => {
+    const approvedAt = user?.user_metadata?.approved_at;
+    if (approvedAt) {
+      const approvedDate = new Date(approvedAt);
+      const now = new Date();
+      const diffInMs = now.getTime() - approvedDate.getTime();
+      const diffInHours = diffInMs / (1000 * 60 * 60);
+      return diffInHours <= 24;
+    }
+    
+    // Fallback for users approved before the timestamp was implemented:
+    // Show if the account itself is less than 48 hours old
+    const createdAt = user?.created_at;
+    if (createdAt) {
+      const createdDate = new Date(createdAt);
+      const now = new Date();
+      const diffInMs = now.getTime() - createdDate.getTime();
+      const diffInHours = diffInMs / (1000 * 60 * 60);
+      return diffInHours <= 48;
+    }
+    
+    return false;
+  };
+
   const filteredProperties = properties.filter(property => {
     if (property.status === 'deleted') return false;
     const matchesSearch = property.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -634,7 +658,7 @@ export default function AgentDashboard() {
           </motion.div>
         )}
 
-        {profile?.status === 'approved' && profile?.role !== 'admin' && (
+        {profile?.status === 'approved' && profile?.role !== 'admin' && isRecentlyApproved() && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
