@@ -68,6 +68,22 @@ export default function Pricing() {
     email: user?.email || '',
     amount: (selectedPlan?.price || 0) * 100, // Paystack uses kobo (Nigeria) or cents
     publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || '',
+    metadata: {
+      userId: user?.id,
+      planId: selectedPlan?.id,
+      custom_fields: [
+        {
+          display_name: "User ID",
+          variable_name: "user_id",
+          value: user?.id
+        },
+        {
+          display_name: "Plan ID",
+          variable_name: "plan_id",
+          value: selectedPlan?.id
+        }
+      ]
+    }
   };
 
   const initializePayment = usePaystackPayment(config);

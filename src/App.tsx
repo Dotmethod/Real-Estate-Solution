@@ -70,9 +70,9 @@ export default function App() {
               <div>
                 <h4 className="text-lg font-bold mb-6">Contact Us</h4>
                 <ul className="space-y-4 text-gray-400">
-                  <li>Lagos, Nigeria</li>
-                  <li>info@realestatesolution.ng</li>
-                  <li>+234 800 123 4567</li>
+                  <li>Plot 309 Unit D Amorc Close, State Housing Estate, Calabar Nigeria</li>
+                  <li>ebokpo.method@gmail.com</li>
+                  <li>07044872620</li>
                 </ul>
               </div>
             </div>

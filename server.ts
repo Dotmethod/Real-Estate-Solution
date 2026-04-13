@@ -6,6 +6,7 @@ import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -47,7 +48,11 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf;
+    }
+  }));
 
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
@@ -181,6 +186,75 @@ async function startServer() {
       console.error('Payment verification error:', error.response?.data || error.message);
       return res.status(500).json({ error: 'Internal server error' });
     }
+  });
+
+  // Paystack Webhook Endpoint
+  app.post('/api/paystack-webhook', async (req: any, res) => {
+    const signature = req.headers['x-paystack-signature'];
+    
+    if (!signature) {
+      return res.status(401).send('No signature provided');
+    }
+
+    // Verify signature
+    const hash = crypto
+      .createHmac('sha512', paystackSecretKey)
+      .update(req.rawBody)
+      .digest('hex');
+
+    if (hash !== signature) {
+      console.error('Invalid Paystack signature');
+      return res.status(401).send('Invalid signature');
+    }
+
+    const event = req.body;
+    console.log('Paystack Webhook received:', event.event);
+
+    if (event.event === 'charge.success') {
+      const { reference, metadata } = event.data;
+      const userId = metadata?.userId;
+      const planId = metadata?.planId;
+
+      console.log('Processing charge.success:', { reference, userId, planId });
+
+      if (userId && planId) {
+        try {
+          // 1. Fetch plan details
+          const { data: plan, error: planError } = await supabaseAdmin
+            .from('subscription_plans')
+            .select('name')
+            .eq('id', planId)
+            .single();
+
+          if (planError || !plan) {
+            console.error('Webhook: Plan not found', planError);
+          } else {
+            // 2. Update user profile
+            const { error: updateError } = await supabaseAdmin
+              .from('profiles')
+              .update({
+                subscription_plan: plan.name,
+                status: 'approved',
+              })
+              .eq('id', userId);
+
+            if (updateError) {
+              console.error('Webhook: Profile update error', updateError);
+            } else {
+              // 3. Update auth metadata
+              await supabaseAdmin.auth.admin.updateUserById(userId, {
+                user_metadata: { subscription_updated_at: new Date().toISOString() }
+              });
+              console.log(`Webhook: Successfully updated subscription for user ${userId} to ${plan.name}`);
+            }
+          }
+        } catch (error) {
+          console.error('Webhook: Error processing subscription update', error);
+        }
+      }
+    }
+
+    res.status(200).send('Webhook received');
   });
 
   // Vite middleware for development
