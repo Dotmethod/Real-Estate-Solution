@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -28,6 +28,7 @@ export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const [property, setProperty] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
 
   React.useEffect(() => {
     const fetchProperty = async () => {
@@ -100,110 +101,137 @@ export default function PropertyDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-12">
-            {/* Image Gallery Placeholder */}
-            <div className="relative rounded-[3rem] overflow-hidden shadow-2xl aspect-video bg-gray-200">
-              <img
-                src={property.images?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1200'}
-                alt={property.title}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute top-8 left-8 flex gap-3">
-                <span className={cn(
-                  "px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl bg-blue-600 text-white"
-                )}>
-                  {property.type || 'Property'}
-                </span>
-                {property.listing_status && (
+          <div className="lg:col-span-2 space-y-8 md:space-y-12">
+            {/* Image Gallery */}
+            <div className="space-y-4">
+              <div className="relative rounded-2xl md:rounded-[3rem] overflow-hidden shadow-2xl aspect-video bg-gray-200">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={currentImageIndex}
+                    initial={{ opacity: 0, scale: 1.1 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    src={property.images?.[currentImageIndex] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1200'}
+                    alt={property.title}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-zoom-in"
+                    referrerPolicy="no-referrer"
+                  />
+                </AnimatePresence>
+                <div className="absolute top-4 left-4 md:top-8 md:left-8 flex flex-wrap gap-2 md:gap-3 pointer-events-none">
                   <span className={cn(
-                    "px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl",
-                    property.listing_status === 'sale' ? "bg-green-600 text-white" :
-                    property.listing_status === 'rent' ? "bg-orange-500 text-white" :
-                    property.listing_status === 'lease' ? "bg-purple-600 text-white" :
-                    "bg-gray-900 text-white"
+                    "px-4 md:px-6 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest shadow-xl bg-blue-600 text-white"
                   )}>
-                    For {property.listing_status}
+                    {property.type || 'Property'}
                   </span>
-                )}
+                  {property.listing_status && (
+                    <span className={cn(
+                      "px-4 md:px-6 py-1.5 md:py-2 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest shadow-xl",
+                      property.listing_status === 'sale' ? "bg-green-600 text-white" :
+                      property.listing_status === 'rent' ? "bg-orange-500 text-white" :
+                      property.listing_status === 'lease' ? "bg-purple-600 text-white" :
+                      "bg-gray-900 text-white"
+                    )}>
+                      For {property.listing_status}
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* Thumbnails */}
+              {property.images && property.images.length > 1 && (
+                <div className="flex flex-wrap gap-3 md:gap-4">
+                  {property.images.map((img: string, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={cn(
+                        "w-20 h-20 md:w-32 md:h-32 rounded-xl md:rounded-3xl overflow-hidden border-4 transition-all duration-300 shadow-md",
+                        currentImageIndex === idx ? "border-blue-600 scale-105" : "border-white hover:border-blue-200"
+                      )}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Title & Price */}
-            <div className="bg-white rounded-[3rem] p-8 md:p-12 border border-gray-100 shadow-sm">
+            <div className="bg-white rounded-2xl md:rounded-[3rem] p-6 md:p-12 border border-gray-100 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div>
-                  <h1 className="text-3xl md:text-5xl font-black text-gray-900 mb-4 leading-tight">
+                  <h1 className="text-2xl md:text-5xl font-black text-gray-900 mb-4 leading-tight">
                     {property.title}
                   </h1>
-                  <div className="flex items-center gap-2 text-gray-500 font-medium">
-                    <MapPin className="h-5 w-5 text-blue-600" />
+                  <div className="flex items-center gap-2 text-gray-500 font-medium text-sm md:text-base">
+                    <MapPin className="h-5 w-5 text-blue-600 shrink-0" />
                     {property.location}
                   </div>
                 </div>
                 <div className="text-left md:text-right">
-                  <p className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-1">Price</p>
-                  <p className="text-4xl md:text-5xl font-black text-blue-600">{formatPrice(property.price)}</p>
+                  <p className="text-gray-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-1">Price</p>
+                  <p className="text-3xl md:text-5xl font-black text-blue-600">{formatPrice(property.price)}</p>
                 </div>
               </div>
 
               {/* Key Features */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-10 border-y border-gray-50">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 md:gap-6 py-8 md:py-10 border-y border-gray-50">
                 <div className="flex flex-col gap-2">
-                  <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                    <Bed className="h-6 w-6 text-blue-600" />
+                  <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center">
+                    <Bed className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Bedrooms</p>
-                    <p className="text-xl font-black text-gray-900">{property.beds || property.bedrooms}</p>
+                    <p className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Bedrooms</p>
+                    <p className="text-lg md:text-xl font-black text-gray-900">{property.beds || property.bedrooms}</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                    <Bath className="h-6 w-6 text-blue-600" />
+                  <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center">
+                    <Bath className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Bathrooms</p>
-                    <p className="text-xl font-black text-gray-900">{property.baths || property.bathrooms}</p>
+                    <p className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Bathrooms</p>
+                    <p className="text-lg md:text-xl font-black text-gray-900">{property.baths || property.bathrooms}</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                    <Square className="h-6 w-6 text-blue-600" />
+                  <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center">
+                    <Square className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Area</p>
-                    <p className="text-xl font-black text-gray-900">{property.sqft || property.area}m²</p>
+                    <p className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Area</p>
+                    <p className="text-lg md:text-xl font-black text-gray-900">{property.sqft || property.area}m²</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                    <Calendar className="h-6 w-6 text-blue-600" />
+                  <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center">
+                    <Calendar className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Listed On</p>
-                    <p className="text-xl font-black text-gray-900">{new Date(property.created_at).toLocaleDateString()}</p>
+                    <p className="text-gray-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">Listed On</p>
+                    <p className="text-lg md:text-xl font-black text-gray-900">{new Date(property.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
               </div>
 
               {/* Description */}
-              <div className="mt-10">
-                <h3 className="text-2xl font-black text-gray-900 mb-6">Description</h3>
-                <p className="text-gray-600 leading-relaxed text-lg whitespace-pre-wrap">
+              <div className="mt-8 md:mt-10">
+                <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-4 md:mb-6">Description</h3>
+                <p className="text-gray-600 leading-relaxed text-base md:text-lg whitespace-pre-wrap">
                   {property.description || "No description provided for this property."}
                 </p>
               </div>
 
               {/* Amenities */}
               {property.amenities && property.amenities.length > 0 && (
-                <div className="mt-12">
-                  <h3 className="text-2xl font-black text-gray-900 mb-6">Amenities</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="mt-10 md:mt-12">
+                  <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-4 md:mb-6">Amenities</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                     {property.amenities.map((amenity: string) => (
-                      <div key={amenity} className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-50 shadow-sm">
+                      <div key={amenity} className="flex items-center gap-3 p-3 md:p-4 bg-white rounded-xl md:rounded-2xl border border-gray-50 shadow-sm">
                         <div className="h-2 w-2 bg-blue-600 rounded-full"></div>
                         <span className="text-sm font-bold text-gray-700">{amenity}</span>
                       </div>
@@ -216,94 +244,94 @@ export default function PropertyDetail() {
           </div>
 
           {/* Sidebar - Agent Details */}
-          <div className="space-y-8">
+          <div className="space-y-6 md:space-y-8">
             <div className="sticky top-24">
-              <div className="bg-white rounded-[3rem] p-8 border border-gray-100 shadow-xl overflow-hidden relative">
+              <div className="bg-white rounded-2xl md:rounded-[3rem] p-6 md:p-8 border border-gray-100 shadow-xl overflow-hidden relative">
                 {/* Decorative background element */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50"></div>
                 
-                <h3 className="text-xl font-black text-gray-900 mb-8 relative">Listing Agent</h3>
+                <h3 className="text-lg md:text-xl font-black text-gray-900 mb-6 md:mb-8 relative">Listing Agent</h3>
                 
                 {agent ? (
-                  <div className="space-y-8 relative">
-                    <div className="flex items-center gap-5">
+                  <div className="space-y-6 md:space-y-8 relative">
+                    <div className="flex items-center gap-4 md:gap-5">
                       <div className="relative">
-                        <div className="h-20 w-20 bg-blue-600 rounded-3xl p-1 shadow-lg">
+                        <div className="h-16 w-16 md:h-20 md:w-20 bg-blue-600 rounded-2xl md:rounded-3xl p-1 shadow-lg">
                           {agent.avatar_url ? (
                             <img 
                               src={agent.avatar_url} 
                               alt={agent.full_name} 
-                              className="h-full w-full object-cover rounded-2xl" 
+                              className="h-full w-full object-cover rounded-xl md:rounded-2xl" 
                               referrerPolicy="no-referrer"
                             />
                           ) : (
-                            <div className="h-full w-full bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-black text-2xl">
+                            <div className="h-full w-full bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl md:text-2xl">
                               {(agent.full_name || 'A').charAt(0)}
                             </div>
                           )}
                         </div>
-                        <div className="absolute -bottom-2 -right-2 bg-green-500 h-6 w-6 rounded-full border-4 border-white flex items-center justify-center">
-                          <ShieldCheck className="h-3 w-3 text-white" />
+                        <div className="absolute -bottom-1 -right-1 md:-bottom-2 md:-right-2 bg-green-500 h-5 w-5 md:h-6 md:w-6 rounded-full border-2 md:border-4 border-white flex items-center justify-center">
+                          <ShieldCheck className="h-2.5 w-2.5 md:h-3 md:w-3 text-white" />
                         </div>
                       </div>
                       <div>
-                        <h4 className="text-xl font-black text-gray-900">{agent.full_name}</h4>
-                        <p className="text-blue-600 text-xs font-black uppercase tracking-widest">Verified Partner</p>
+                        <h4 className="text-lg md:text-xl font-black text-gray-900">{agent.full_name}</h4>
+                        <p className="text-blue-600 text-[10px] md:text-xs font-black uppercase tracking-widest">Verified Partner</p>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Phone Number</p>
-                        <a href={`tel:${agent.phone}`} className="text-lg font-black text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-2">
-                          <Phone className="h-5 w-5 text-blue-600" />
+                    <div className="space-y-3 md:space-y-4">
+                      <div className="p-3 md:p-4 bg-gray-50 rounded-xl md:rounded-2xl border border-gray-100">
+                        <p className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Phone Number</p>
+                        <a href={`tel:${agent.phone}`} className="text-base md:text-lg font-black text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-2">
+                          <Phone className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
                           {agent.phone || 'Contact for phone'}
                         </a>
                       </div>
 
-                      <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Email Address</p>
-                        <a href={`mailto:${agent.email}`} className="text-lg font-black text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-2 break-all">
-                          <Mail className="h-5 w-5 text-blue-600 shrink-0" />
+                      <div className="p-3 md:p-4 bg-gray-50 rounded-xl md:rounded-2xl border border-gray-100">
+                        <p className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Email Address</p>
+                        <a href={`mailto:${agent.email}`} className="text-base md:text-lg font-black text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-2 break-all">
+                          <Mail className="h-4 w-4 md:h-5 md:w-5 text-blue-600 shrink-0" />
                           {agent.email || 'Contact for email'}
                         </a>
                       </div>
                       
-                      <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Office Address</p>
+                      <div className="p-3 md:p-4 bg-gray-50 rounded-xl md:rounded-2xl border border-gray-100">
+                        <p className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Office Address</p>
                         <div className="flex items-start gap-2 text-gray-700 font-bold">
-                          <MapPin className="h-5 w-5 text-blue-600 shrink-0" />
-                          <span className="text-sm">{agent.address || 'Address provided on request'}</span>
+                          <MapPin className="h-4 w-4 md:h-5 md:w-5 text-blue-600 shrink-0" />
+                          <span className="text-xs md:text-sm">{agent.address || 'Address provided on request'}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-4 space-y-3">
-                      <button className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-3">
-                        <MessageSquare className="h-5 w-5" />
+                    <div className="pt-2 md:pt-4 space-y-3">
+                      <button className="w-full py-4 md:py-5 bg-blue-600 text-white rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-3">
+                        <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />
                         Send Message
                       </button>
-                      <button className="w-full py-5 bg-white text-blue-600 border-2 border-blue-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
-                        <Calendar className="h-5 w-5" />
+                      <button className="w-full py-4 md:py-5 bg-white text-blue-600 border-2 border-blue-600 rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
+                        <Calendar className="h-4 w-4 md:h-5 md:w-5" />
                         Schedule Tour
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <User className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-bold">Agent information unavailable</p>
+                  <div className="text-center py-6 md:py-8">
+                    <User className="h-10 w-10 md:h-12 md:w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 font-bold text-sm">Agent information unavailable</p>
                   </div>
                 )}
               </div>
 
               {/* Safety Tip */}
-              <div className="mt-8 p-6 bg-orange-50 rounded-[2rem] border border-orange-100">
-                <h4 className="text-orange-900 font-black text-sm mb-2 flex items-center gap-2">
+              <div className="mt-6 md:mt-8 p-5 md:p-6 bg-orange-50 rounded-2xl md:rounded-[2rem] border border-orange-100">
+                <h4 className="text-orange-900 font-black text-xs md:text-sm mb-2 flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4" />
                   Safety Tip
                 </h4>
-                <p className="text-orange-800 text-xs font-medium leading-relaxed">
+                <p className="text-orange-800 text-[10px] md:text-xs font-medium leading-relaxed">
                   Never pay upfront for property inspections. Always meet the agent in person and verify documents before making any payments.
                 </p>
               </div>

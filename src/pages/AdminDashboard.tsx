@@ -529,12 +529,12 @@ export default function AdminDashboard() {
             <h1 className="text-3xl font-black text-gray-900">Admin Platform</h1>
             <p className="text-gray-600">Manage agents, property owners, and listings.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+            <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm min-w-max">
             <button
               onClick={() => setActiveTab('users')}
               className={cn(
-                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                "px-4 md:px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
                 activeTab === 'users' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
               )}
             >
@@ -543,7 +543,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab('properties')}
               className={cn(
-                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                "px-4 md:px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
                 activeTab === 'properties' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
               )}
             >
@@ -552,7 +552,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab('plans')}
               className={cn(
-                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                "px-4 md:px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
                 activeTab === 'plans' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
               )}
             >
@@ -561,7 +561,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab('stats')}
               className={cn(
-                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                "px-4 md:px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
                 activeTab === 'stats' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
               )}
             >
@@ -570,7 +570,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab('profile')}
               className={cn(
-                "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+                "px-4 md:px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
                 activeTab === 'profile' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
               )}
             >
@@ -600,151 +600,170 @@ export default function AdminDashboard() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
+            className="bg-white md:rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
           >
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="px-6 py-4 text-sm font-bold text-gray-900">User</th>
-                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Role</th>
-                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Plan</th>
-                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Status</th>
-                  <th className="px-6 py-4 text-sm font-bold text-gray-900">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {isLoading ? (
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading users...</td>
+                    <th className="px-6 py-4 text-sm font-bold text-gray-900">User</th>
+                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Role</th>
+                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Plan</th>
+                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Status</th>
+                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Actions</th>
                   </tr>
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No users found.</td>
-                  </tr>
-                ) : users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 font-bold overflow-hidden">
-                          {user.avatar_url ? (
-                            <img 
-                              src={user.avatar_url} 
-                              alt={user.full_name} 
-                              className="h-full w-full object-cover" 
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            (user.full_name || 'U').charAt(0)
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
-                          <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
-                          <div className="flex flex-col gap-0.5 mt-1">
-                            {user.phone && (
-                              <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
-                                <Phone className="h-2.5 w-2.5" /> {user.phone}
-                              </p>
-                            )}
-                            {user.address && (
-                              <p className="text-[10px] text-gray-400 flex items-center gap-1 max-w-[200px] truncate">
-                                <MapPin className="h-2.5 w-2.5 shrink-0" /> {user.address}
-                              </p>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading users...</td>
+                    </tr>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No users found.</td>
+                    </tr>
+                  ) : users.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+                            {user.avatar_url ? (
+                              <img 
+                                src={user.avatar_url} 
+                                alt={user.full_name} 
+                                className="h-full w-full object-cover" 
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              (user.full_name || 'U').charAt(0)
                             )}
                           </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
+                            <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                            <div className="flex flex-col gap-0.5 mt-1">
+                              {user.phone && (
+                                <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
+                                  <Phone className="h-2.5 w-2.5" /> {user.phone}
+                                </p>
+                              )}
+                              {user.address && (
+                                <p className="text-[10px] text-gray-400 flex items-center gap-1 max-w-[200px] truncate">
+                                  <MapPin className="h-2.5 w-2.5 shrink-0" /> {user.address}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {editingUserId === user.id ? (
-                        <select
-                          value={editForm.role}
-                          onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                          className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
-                        >
-                          <option value="client">Client</option>
-                          <option value="agent">Agent</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      ) : (
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-600">{user.role}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {editingUserId === user.id ? (
-                        <select
-                          value={editForm.subscription_plan}
-                          onChange={(e) => setEditForm({ ...editForm, subscription_plan: e.target.value })}
-                          className="text-sm bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
-                        >
-                          {plans.map(plan => (
-                            <option key={plan.id} value={plan.name}>{plan.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-600 capitalize">{user.subscription_plan || 'Starter Plan'}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {editingUserId === user.id ? (
-                        <select
-                          value={editForm.status}
-                          onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                          className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="approved">Approved</option>
-                          <option value="suspended">Suspended</option>
-                        </select>
-                      ) : (
-                        <span className={cn(
-                          "px-3 py-1 rounded-full text-xs font-bold capitalize",
-                          user.status === 'approved' ? "bg-green-100 text-green-700" :
-                          user.status === 'pending' ? "bg-yellow-100 text-yellow-700" :
-                          user.status === 'suspended' ? "bg-red-100 text-red-700" :
-                          "bg-gray-100 text-gray-700"
-                        )}>
-                          {user.status || 'pending'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
+                      </td>
+                      <td className="px-6 py-4">
                         {editingUserId === user.id ? (
-                          <>
-                            <button
-                              onClick={() => handleSaveEdit(user.id)}
-                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                              title="Save"
-                            >
-                              <Save className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => setEditingUserId(null)}
-                              className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                              title="Cancel"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </>
+                          <select
+                            value={editForm.role}
+                            onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                            className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                          >
+                            <option value="client">Client</option>
+                            <option value="agent">Agent</option>
+                            <option value="admin">Admin</option>
+                          </select>
                         ) : (
-                          <>
-                            {user.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => updateUserStatus(user.id, 'approved')}
-                                  className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
-                                  title="Approve"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => updateUserStatus(user.id, 'rejected')}
-                                  className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                  title="Reject"
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                </button>
+                          <span className="text-xs font-bold uppercase tracking-wider text-gray-600">{user.role}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingUserId === user.id ? (
+                          <select
+                            value={editForm.subscription_plan}
+                            onChange={(e) => setEditForm({ ...editForm, subscription_plan: e.target.value })}
+                            className="text-sm bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                          >
+                            {plans.map(plan => (
+                              <option key={plan.id} value={plan.name}>{plan.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-sm text-gray-600 capitalize">{user.subscription_plan || 'Starter Plan'}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingUserId === user.id ? (
+                          <select
+                            value={editForm.status}
+                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                            className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="suspended">Suspended</option>
+                          </select>
+                        ) : (
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-xs font-bold capitalize",
+                            user.status === 'approved' ? "bg-green-100 text-green-700" :
+                            user.status === 'pending' ? "bg-yellow-100 text-yellow-700" :
+                            user.status === 'suspended' ? "bg-red-100 text-red-700" :
+                            "bg-gray-100 text-gray-700"
+                          )}>
+                            {user.status || 'pending'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {editingUserId === user.id ? (
+                            <>
+                              <button
+                                onClick={() => handleSaveEdit(user.id)}
+                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                title="Save"
+                              >
+                                <Save className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setEditingUserId(null)}
+                                className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                                title="Cancel"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {user.status === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => updateUserStatus(user.id, 'approved')}
+                                    className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+                                    title="Approve"
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => updateUserStatus(user.id, 'rejected')}
+                                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                    title="Reject"
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => updateUserStatus(user.id, 'suspended')}
+                                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                    title="Suspend User"
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                onClick={() => handleEditClick(user)}
+                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              {user.status === 'approved' && (
                                 <button
                                   onClick={() => updateUserStatus(user.id, 'suspended')}
                                   className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
@@ -752,41 +771,168 @@ export default function AdminDashboard() {
                                 >
                                   <XCircle className="h-4 w-4" />
                                 </button>
-                              </>
-                            )}
-                            <button
-                              onClick={() => handleEditClick(user)}
-                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                              title="Edit"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            {user.status === 'approved' && (
-                              <button
-                                onClick={() => updateUserStatus(user.id, 'suspended')}
-                                className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                title="Suspend User"
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </button>
-                            )}
-                            {user.status === 'suspended' && (
-                              <button
-                                onClick={() => updateUserStatus(user.id, 'approved')}
-                                className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
-                                title="Activate User"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </button>
-                            )}
-                          </>
+                              )}
+                              {user.status === 'suspended' && (
+                                <button
+                                  onClick={() => updateUserStatus(user.id, 'approved')}
+                                  className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+                                  title="Activate User"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {isLoading ? (
+                <div className="p-8 text-center text-gray-500">Loading users...</div>
+              ) : users.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">No users found.</div>
+              ) : users.map((user) => (
+                <div key={user.id} className="p-4 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 font-bold overflow-hidden shrink-0">
+                        {user.avatar_url ? (
+                          <img 
+                            src={user.avatar_url} 
+                            alt={user.full_name} 
+                            className="h-full w-full object-cover" 
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          (user.full_name || 'U').charAt(0)
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <div>
+                        <p className="font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
+                        <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                      </div>
+                    </div>
+                    <span className={cn(
+                      "px-2 py-1 rounded-full text-[10px] font-black uppercase",
+                      user.status === 'approved' ? "bg-green-100 text-green-700" :
+                      user.status === 'pending' ? "bg-yellow-100 text-yellow-700" :
+                      user.status === 'suspended' ? "bg-red-100 text-red-700" :
+                      "bg-gray-100 text-gray-700"
+                    )}>
+                      {user.status || 'pending'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-2xl">
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Role</p>
+                      {editingUserId === user.id ? (
+                        <select
+                          value={editForm.role}
+                          onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                          className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1"
+                        >
+                          <option value="client">Client</option>
+                          <option value="agent">Agent</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      ) : (
+                        <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">{user.role}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Plan</p>
+                      {editingUserId === user.id ? (
+                        <select
+                          value={editForm.subscription_plan}
+                          onChange={(e) => setEditForm({ ...editForm, subscription_plan: e.target.value })}
+                          className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1"
+                        >
+                          {plans.map(plan => (
+                            <option key={plan.id} value={plan.name}>{plan.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-xs font-bold text-gray-700">{user.subscription_plan || 'Starter Plan'}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {editingUserId === user.id && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Status</p>
+                      <select
+                        value={editForm.status}
+                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                        className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="suspended">Suspended</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-2">
+                    {editingUserId === user.id ? (
+                      <>
+                        <button
+                          onClick={() => handleSaveEdit(user.id)}
+                          className="flex-1 py-2 bg-blue-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2"
+                        >
+                          <Save className="h-3 w-3" /> Save Changes
+                        </button>
+                        <button
+                          onClick={() => setEditingUserId(null)}
+                          className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEditClick(user)}
+                          className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
+                        >
+                          <Edit2 className="h-3 w-3" /> Edit User
+                        </button>
+                        {user.status === 'pending' && (
+                          <button
+                            onClick={() => updateUserStatus(user.id, 'approved')}
+                            className="p-2 bg-green-50 text-green-600 rounded-xl"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                        )}
+                        {(user.status === 'approved' || user.status === 'pending') && (
+                          <button
+                            onClick={() => updateUserStatus(user.id, 'suspended')}
+                            className="p-2 bg-red-50 text-red-600 rounded-xl"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        )}
+                        {user.status === 'suspended' && (
+                          <button
+                            onClick={() => updateUserStatus(user.id, 'approved')}
+                            className="p-2 bg-green-50 text-green-600 rounded-xl"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.div>
         )}
 
@@ -826,17 +972,17 @@ export default function AdminDashboard() {
                     <MapPin className="h-3 w-3" /> {property.location}
                   </p>
                   
-                  <div className="mt-auto grid grid-cols-2 gap-2">
+            <div className="mt-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       onClick={() => handleEditProperty(property)}
-                      className="py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all text-xs flex items-center justify-center gap-1 col-span-2"
+                      className="py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all text-xs flex items-center justify-center gap-2 sm:col-span-2"
                     >
-                      <Edit2 className="h-3 w-3" /> Edit Property Details
+                      <Edit2 className="h-3.5 w-3.5" /> Edit Property Details
                     </button>
                     <button
                       onClick={() => toggleFeatured(property.id, property.is_featured)}
                       className={cn(
-                        "py-2 rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-1 col-span-2 border",
+                        "py-2.5 rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-2 sm:col-span-2 border",
                         property.is_featured 
                           ? "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100" 
                           : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -847,25 +993,25 @@ export default function AdminDashboard() {
                     {property.status !== 'approved' && (
                       <button
                         onClick={() => approveProperty(property.id)}
-                        className="py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all text-xs flex items-center justify-center gap-1"
+                        className="py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all text-xs flex items-center justify-center gap-2"
                       >
-                        <CheckCircle className="h-3 w-3" /> Approve
+                        <CheckCircle className="h-3.5 w-3.5" /> Approve
                       </button>
                     )}
                     {property.status !== 'rejected' && (
                       <button
                         onClick={() => rejectProperty(property.id)}
-                        className="py-2 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-700 transition-all text-xs flex items-center justify-center gap-1"
+                        className="py-2.5 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-700 transition-all text-xs flex items-center justify-center gap-2"
                       >
-                        <XCircle className="h-3 w-3" /> Reject
+                        <XCircle className="h-3.5 w-3.5" /> Reject
                       </button>
                     )}
                     {property.status !== 'deleted' && (
                       <button
                         onClick={() => deleteProperty(property.id)}
-                        className="py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all text-xs flex items-center justify-center gap-1 col-span-2"
+                        className="py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all text-xs flex items-center justify-center gap-2 sm:col-span-2"
                       >
-                        <Trash2 className="h-3 w-3" /> Delete Property
+                        <Trash2 className="h-3.5 w-3.5" /> Delete Property
                       </button>
                     )}
                   </div>
@@ -1004,7 +1150,7 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={savePlan} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Plan Name</label>
                   <input
@@ -1028,7 +1174,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Interval</label>
                   <select
@@ -1044,7 +1190,7 @@ export default function AdminDashboard() {
 
               <div className="bg-gray-50 p-6 rounded-2xl space-y-4">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Plan Limits</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">Property Limit</label>
                     <input

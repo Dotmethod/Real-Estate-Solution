@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
 import AdminDashboard from './pages/AdminDashboard';
 import AgentDashboard from './pages/AgentDashboard';
@@ -18,6 +19,7 @@ import PropertyCard from './components/PropertyCard';
 export default function App() {
   return (
     <Router>
+      <ScrollToTop />
       <div className="min-h-screen bg-white font-sans selection:bg-blue-100 selection:text-blue-900">
         <Navbar />
         <Routes>

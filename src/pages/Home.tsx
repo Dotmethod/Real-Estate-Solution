@@ -139,7 +139,7 @@ export default function Home() {
   return (
     <div className="pt-16">
       {/* Hero Section */}
-      <section className="relative h-[90vh] flex items-center overflow-hidden bg-gray-900">
+      <section className="relative min-h-[85vh] md:h-[90vh] flex items-center overflow-hidden bg-gray-900">
         <div className="absolute inset-0 z-0">
           <img 
             src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&q=80&w=1920" 
@@ -150,37 +150,37 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-r from-gray-900/80 via-gray-900/40 to-transparent"></div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 py-20 md:py-0">
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
             className="max-w-2xl"
           >
-            <h1 className="text-6xl md:text-7xl font-black text-white leading-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-white leading-tight mb-6">
               Find Your <span className="text-blue-400 italic">Dream</span> Home in Nigeria.
             </h1>
-            <p className="text-xl text-gray-200 mb-8 leading-relaxed">
+            <p className="text-lg md:text-xl text-gray-200 mb-8 leading-relaxed">
               The most trusted platform for agents and property owners to list, manage, and sell properties across the nation.
             </p>
             
-            <form onSubmit={handleSearch} className="bg-white p-2 rounded-2xl shadow-2xl flex flex-col md:flex-row gap-2">
-              <div className="flex-1 flex items-center px-4 gap-3 border-r border-gray-100">
-                <Search className="text-gray-400 h-5 w-5" />
+            <form onSubmit={handleSearch} className="bg-white p-2 rounded-2xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row gap-2">
+              <div className="flex-1 flex items-center px-4 gap-3 border-b md:border-b-0 md:border-r border-gray-100">
+                <Search className="text-gray-400 h-5 w-5 shrink-0" />
                 <input 
                   type="text" 
                   placeholder="Search title, description..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900"
+                  className="w-full py-4 focus:outline-none text-gray-900 text-sm md:text-base"
                 />
               </div>
-              <div className="flex-1 flex items-center px-4 gap-3 border-r border-gray-100">
-                <MapPin className="text-gray-400 h-5 w-5" />
+              <div className="flex-1 flex items-center px-4 gap-3 border-b md:border-b-0 md:border-r border-gray-100">
+                <MapPin className="text-gray-400 h-5 w-5 shrink-0" />
                 <select 
                   value={searchLocation}
                   onChange={(e) => setSearchLocation(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent"
+                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base"
                 >
                   <option value="">All Locations</option>
                   {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
@@ -188,12 +188,12 @@ export default function Home() {
                   ))}
                 </select>
               </div>
-              <div className="flex-1 flex items-center px-4 gap-3 border-r border-gray-100">
-                <Building2 className="text-gray-400 h-5 w-5" />
+              <div className="flex-1 flex items-center px-4 gap-3 border-b md:border-b-0 md:border-r border-gray-100">
+                <Building2 className="text-gray-400 h-5 w-5 shrink-0" />
                 <select 
                   value={searchType}
                   onChange={(e) => setSearchType(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent"
+                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base"
                 >
                   <option value="">All Types</option>
                   <option value="house">House</option>
@@ -203,11 +203,11 @@ export default function Home() {
                 </select>
               </div>
               <div className="flex-1 flex items-center px-4 gap-3">
-                <Building2 className="text-gray-400 h-5 w-5" />
+                <Building2 className="text-gray-400 h-5 w-5 shrink-0" />
                 <select 
                   value={searchListingStatus}
                   onChange={(e) => setSearchListingStatus(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent"
+                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base"
                 >
                   <option value="">All Status</option>
                   <option value="sale">For Sale</option>
@@ -216,7 +216,7 @@ export default function Home() {
                   <option value="short-let">Short Let</option>
                 </select>
               </div>
-              <button type="submit" className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+              <button type="submit" className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 mt-2 md:mt-0">
                 Search <ArrowRight className="h-5 w-5" />
               </button>
             </form>
@@ -225,16 +225,16 @@ export default function Home() {
       </section>
 
       {/* Featured Properties Section */}
-      <section className="py-20 bg-white">
+      <section className="py-12 md:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-end mb-12">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-4">
             <div>
-              <h2 className="text-4xl font-black text-gray-900 mb-4">Featured <span className="text-blue-600 italic">Listings</span></h2>
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 md:mb-4">Featured <span className="text-blue-600 italic">Listings</span></h2>
               <p className="text-gray-600">Hand-picked premium properties for you.</p>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
             {isLoadingFeatured ? (
               [1, 2, 3].map((i) => (
                 <div key={i} className="h-[400px] bg-gray-100 rounded-3xl animate-pulse"></div>
@@ -253,9 +253,9 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-white">
+      <section className="py-12 md:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
             {[
               { icon: Shield, title: "Trusted Platform", desc: "Verified agents and secure transactions for peace of mind." },
               { icon: TrendingUp, title: "Market Insights", desc: "Get real-time data on property trends and pricing in Nigeria." },
@@ -281,11 +281,11 @@ export default function Home() {
       </section>
 
       {/* Property Gallery */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-12 md:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-end mb-12">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-4">
             <div>
-              <h2 className="text-4xl font-black text-gray-900 mb-4">Property Gallery</h2>
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 md:mb-4">Property Gallery</h2>
               <p className="text-gray-600">Explore our most recent property submissions.</p>
             </div>
             <Link to="/properties" className="text-blue-600 font-bold flex items-center gap-2 hover:gap-3 transition-all">
@@ -293,7 +293,7 @@ export default function Home() {
             </Link>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
             {isLoading ? (
               [1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="h-[400px] bg-gray-200 rounded-3xl animate-pulse"></div>
@@ -308,14 +308,14 @@ export default function Home() {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 bg-white overflow-hidden">
+      <section className="py-12 md:py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">Simple, Transparent Pricing</h2>
+          <div className="text-center max-w-3xl mx-auto mb-10 md:mb-16">
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">Simple, Transparent Pricing</h2>
             <p className="text-gray-600">Choose the plan that fits your business needs. Scale as you grow.</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
             {isLoadingPlans ? (
               <div className="col-span-full flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -334,12 +334,12 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20">
+      <section className="py-12 md:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-blue-600 rounded-[3rem] p-12 md:p-20 text-center text-white relative overflow-hidden">
+          <div className="bg-blue-600 rounded-[2rem] md:rounded-[3rem] p-10 md:p-20 text-center text-white relative overflow-hidden">
             <div className="relative z-10 max-w-3xl mx-auto">
-              <h2 className="text-4xl md:text-5xl font-black mb-6">Ready to list your property?</h2>
-              <p className="text-xl text-blue-100 mb-10">Join thousands of successful agents and owners on Nigeria's leading real estate platform.</p>
+              <h2 className="text-3xl md:text-5xl font-black mb-4 md:mb-6">Ready to list your property?</h2>
+              <p className="text-lg md:text-xl text-blue-100 mb-8 md:mb-10">Join thousands of successful agents and owners on Nigeria's leading real estate platform.</p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link to="/signup" className="bg-white text-blue-600 px-10 py-4 rounded-xl font-bold hover:bg-blue-50 transition-all w-full sm:w-auto">
                   Get Started Now

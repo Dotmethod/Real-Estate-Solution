@@ -148,14 +148,14 @@ export default function Login() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white rounded-[2.5rem] p-10 shadow-xl shadow-gray-200/50 border border-gray-100"
+        className="max-w-md w-full bg-white rounded-2xl md:rounded-[2.5rem] p-6 md:p-10 shadow-xl shadow-gray-200/50 border border-gray-100"
       >
-        <div className="text-center mb-10">
-          <div className="h-16 w-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-200">
-            <Building2 className="h-8 w-8 text-white" />
+        <div className="text-center mb-8 md:mb-10">
+          <div className="h-12 w-12 md:h-16 md:w-16 bg-blue-600 rounded-xl md:rounded-2xl flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-lg shadow-blue-200">
+            <Building2 className="h-6 w-6 md:h-8 md:w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-gray-900 mb-2">Welcome Back</h1>
-          <p className="text-gray-500">Enter your credentials to access your account</p>
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 mb-2">Welcome Back</h1>
+          <p className="text-sm md:text-base text-gray-500">Enter your credentials to access your account</p>
         </div>
 
         {error && (

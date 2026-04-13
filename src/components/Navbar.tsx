@@ -155,54 +155,64 @@ export default function Navbar() {
       </div>
 
       {/* Mobile menu */}
-      <div className={cn("md:hidden bg-white border-b border-gray-100 overflow-hidden transition-all duration-300", isOpen ? "max-h-96" : "max-h-0")}>
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+      <div className={cn(
+        "md:hidden bg-white border-b border-gray-100 overflow-hidden transition-all duration-300 ease-in-out",
+        isOpen ? "max-h-[100vh] opacity-100" : "max-h-0 opacity-0"
+      )}>
+        <div className="px-4 pt-2 pb-6 space-y-2">
           {navLinks.map((link) => (
             <Link
               key={link.name}
               to={link.href}
-              className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-blue-600"
+              className="block px-4 py-3 text-lg font-semibold text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
               onClick={() => setIsOpen(false)}
             >
               {link.name}
             </Link>
           ))}
-          <div className="pt-4 pb-2 border-t border-gray-100">
+          <div className="pt-4 mt-4 border-t border-gray-100 space-y-2">
             {user ? (
               <>
                 <Link
                   to={userRole === 'admin' ? '/admin' : '/dashboard'}
-                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-blue-600"
+                  className="flex items-center gap-3 px-4 py-3 text-lg font-semibold text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                   onClick={() => setIsOpen(false)}
                 >
+                  <LayoutDashboard className="h-5 w-5" />
                   Dashboard
                 </Link>
                 <button
                   onClick={() => { handleLogout(); setIsOpen(false); }}
                   disabled={isLoading}
-                  className="block w-full text-left px-3 py-2 text-base font-medium text-red-600 hover:text-red-700 flex items-center gap-2 disabled:opacity-50"
+                  className="flex items-center gap-3 w-full text-left px-4 py-3 text-lg font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all disabled:opacity-50"
                 >
                   <LogOut className="h-5 w-5" />
                   {isLoading ? 'Logging out...' : 'Logout'}
                 </button>
+                <button
+                  onClick={() => { window.location.href = '/login?reset=true'; setIsOpen(false); }}
+                  className="block w-full text-left px-4 py-2 text-xs text-red-400 font-bold uppercase tracking-tighter"
+                >
+                  Reset Session
+                </button>
               </>
             ) : (
-              <>
+              <div className="grid grid-cols-2 gap-3 pt-2">
                 <Link
                   to="/login"
-                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-blue-600"
+                  className="flex items-center justify-center px-4 py-3 text-base font-bold text-gray-700 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all"
                   onClick={() => setIsOpen(false)}
                 >
                   Login
                 </Link>
                 <Link
                   to="/signup"
-                  className="block px-3 py-2 text-base font-medium text-blue-600 font-bold"
+                  className="flex items-center justify-center px-4 py-3 text-base font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
                   onClick={() => setIsOpen(false)}
                 >
                   Sign Up
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>

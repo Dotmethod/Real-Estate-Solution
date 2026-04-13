@@ -106,17 +106,17 @@ const Properties = () => {
   };
 
   return (
-    <div className="pt-24 pb-20 px-4 max-w-7xl mx-auto min-h-screen bg-gray-50">
-      <div className="mb-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+    <div className="pt-20 md:pt-24 pb-20 px-4 max-w-7xl mx-auto min-h-screen bg-gray-50">
+      <div className="mb-8 md:mb-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 mb-6 md:mb-8">
           <div>
-            <h1 className="text-4xl font-black text-gray-900 mb-4">All Properties</h1>
-            <p className="text-gray-600">Browse through our verified listings across Nigeria.</p>
+            <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 md:mb-4">All Properties</h1>
+            <p className="text-gray-600 text-sm md:text-base">Browse through our verified listings across Nigeria.</p>
           </div>
           {(q || location || type || listingStatus || maxPrice) && (
             <button 
               onClick={clearFilters}
-              className="flex items-center gap-2 text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
+              className="flex items-center gap-2 text-xs md:text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
             >
               <X className="h-4 w-4" /> Clear All Filters
             </button>
@@ -124,7 +124,7 @@ const Properties = () => {
         </div>
 
         {/* Search & Filter Bar */}
-        <form onSubmit={handleFilter} className="bg-white p-4 rounded-3xl shadow-xl border border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <form onSubmit={handleFilter} className="bg-white p-4 rounded-2xl md:rounded-3xl shadow-xl border border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input 
@@ -132,7 +132,7 @@ const Properties = () => {
               placeholder="Search properties..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm"
             />
           </div>
 
@@ -141,7 +141,7 @@ const Properties = () => {
             <select 
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
             >
               <option value="">All Locations</option>
               {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
@@ -155,7 +155,7 @@ const Properties = () => {
             <select 
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
             >
               <option value="">All Types</option>
               <option value="apartment">Apartment</option>
@@ -170,7 +170,7 @@ const Properties = () => {
             <select 
               value={listingStatus}
               onChange={(e) => setListingStatus(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
             >
               <option value="">All Status</option>
               <option value="sale">For Sale</option>
@@ -187,13 +187,13 @@ const Properties = () => {
               placeholder="Max Price"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm"
             />
           </div>
 
           <button 
             type="submit"
-            className="bg-blue-600 text-white py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+            className="bg-blue-600 text-white py-3 rounded-xl md:rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
           >
             Apply Filters
           </button>
@@ -206,17 +206,17 @@ const Properties = () => {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-[400px] bg-gray-200 rounded-3xl animate-pulse"></div>
+            <div key={i} className="h-[350px] md:h-[400px] bg-gray-200 rounded-2xl md:rounded-3xl animate-pulse"></div>
           ))}
         </div>
       ) : properties.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-[3rem] border border-gray-100">
+        <div className="text-center py-16 md:py-20 bg-white rounded-2xl md:rounded-[3rem] border border-gray-100">
           <p className="text-gray-500 font-bold">No properties found.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
           {properties.map((property) => (
             <PropertyCard key={property.id} property={property} />
           ))}

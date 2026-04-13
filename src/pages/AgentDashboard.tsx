@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Building2, TrendingUp, Eye, Edit, Trash2, MapPin, User, LayoutDashboard, X, Image as ImageIcon, Loader2, AlertTriangle, CreditCard } from 'lucide-react';
+import { Plus, Building2, TrendingUp, Eye, Edit, Trash2, MapPin, User, LayoutDashboard, X, Image as ImageIcon, Loader2, AlertTriangle, CreditCard, Clock, CheckCircle } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
@@ -100,10 +100,8 @@ export default function AgentDashboard() {
           }
         }
 
-        if (profileData?.status !== 'approved' && profileData?.status !== 'suspended' && profileData?.role !== 'admin') {
-          await supabase.auth.signOut();
-          window.location.href = '/login?message=pending';
-          return;
+        if (profileData?.status === 'suspended' && profileData?.role !== 'admin') {
+          // We allow suspended users to log in but restrict actions
         }
         
         setProfile(profileData);
@@ -154,10 +152,8 @@ export default function AgentDashboard() {
           }
         }
         
-        if (profileData?.status !== 'approved' && profileData?.status !== 'suspended' && profileData?.role !== 'admin') {
-          await supabase.auth.signOut();
-          window.location.href = '/login?message=pending';
-          return;
+        if (profileData?.status === 'suspended' && profileData?.role !== 'admin') {
+          // We allow suspended users to log in but restrict actions
         }
         
         setProfile(profileData);
@@ -622,6 +618,38 @@ export default function AgentDashboard() {
           </motion.div>
         )}
 
+        {profile?.status === 'pending' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 bg-yellow-50 border border-yellow-100 rounded-[2rem] flex items-center gap-4 text-yellow-700 shadow-sm"
+          >
+            <div className="h-12 w-12 bg-yellow-100 rounded-2xl flex items-center justify-center shrink-0">
+              <Clock className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black mb-1">Account Pending Approval</h3>
+              <p className="text-sm font-medium opacity-80">Your account is currently pending approval from our administrators. You can explore the dashboard, but you won't be able to submit new listings until your account is approved. We'll notify you once it's ready!</p>
+            </div>
+          </motion.div>
+        )}
+
+        {profile?.status === 'approved' && profile?.role !== 'admin' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 bg-green-50 border border-green-100 rounded-[2rem] flex items-center gap-4 text-green-700 shadow-sm"
+          >
+            <div className="h-12 w-12 bg-green-100 rounded-2xl flex items-center justify-center shrink-0">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black mb-1">Account Approved</h3>
+              <p className="text-sm font-medium opacity-80">Great news! Your account has been approved. You can now start submitting your property listings and reach potential buyers/renters.</p>
+            </div>
+          </motion.div>
+        )}
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
           <div>
             <h1 className="text-3xl font-black text-gray-900">Agent Dashboard</h1>
@@ -687,6 +715,18 @@ export default function AgentDashboard() {
                   </div>
                 )}
               </div>
+            ) : profile?.status === 'pending' ? (
+              <div className="relative group">
+                <button
+                  disabled
+                  className="px-8 py-4 bg-gray-100 text-gray-400 rounded-xl font-bold flex items-center gap-2 border border-gray-200 cursor-not-allowed shadow-sm"
+                >
+                  <Plus className="h-5 w-5" /> Upload Property
+                </button>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                  Pending Approval
+                </div>
+              </div>
             ) : profile?.status === 'suspended' ? (
               <div className="bg-gray-100 text-gray-400 px-8 py-4 rounded-xl font-bold flex items-center gap-2 cursor-not-allowed border border-gray-200">
                 <AlertTriangle className="h-5 w-5" /> Upload Disabled
@@ -714,7 +754,7 @@ export default function AgentDashboard() {
         {activeTab === 'overview' && (
           <>
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
               {[
                 { label: 'Active Listings', value: properties.filter(p => p.status !== 'deleted').length, icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' },
                 { label: 'Total Listings Used', value: properties.length, icon: Building2, color: 'text-orange-600', bg: 'bg-orange-50' },
@@ -725,13 +765,13 @@ export default function AgentDashboard() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}
-                  className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm"
+                  className="bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm"
                 >
-                  <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center mb-6", stat.bg)}>
-                    <stat.icon className={cn("h-6 w-6", stat.color)} />
+                  <div className={cn("h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-6", stat.bg)}>
+                    <stat.icon className={cn("h-5 w-5 md:h-6 md:w-6", stat.color)} />
                   </div>
-                  <p className="text-sm text-gray-500 font-medium mb-1">{stat.label}</p>
-                  <p className="text-3xl font-black text-gray-900">{stat.value}</p>
+                  <p className="text-xs md:text-sm text-gray-500 font-medium mb-1">{stat.label}</p>
+                  <p className="text-2xl md:text-3xl font-black text-gray-900">{stat.value}</p>
                 </motion.div>
               ))}
             </div>
@@ -849,11 +889,13 @@ export default function AgentDashboard() {
             </div>
 
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-8 border-b border-gray-100 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-900">My Listings</h2>
-                <span className="text-sm text-gray-500 font-medium">Showing {filteredProperties.length} properties</span>
+              <div className="p-6 md:p-8 border-b border-gray-100 flex justify-between items-center">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900">My Listings</h2>
+                <span className="text-xs md:text-sm text-gray-500 font-medium">Showing {filteredProperties.length} properties</span>
               </div>
-              <div className="overflow-x-auto">
+              
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50">
                     <tr>
@@ -942,6 +984,73 @@ export default function AgentDashboard() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-gray-100">
+                {isLoading ? (
+                  <div className="p-8 text-center text-gray-500">Loading properties...</div>
+                ) : filteredProperties.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No properties found.</div>
+                ) : filteredProperties.map((property) => (
+                  <div key={property.id} className="p-4 space-y-4">
+                    <div className="flex items-center gap-4">
+                      <img src={property.images[0]} alt="" className="h-16 w-16 rounded-xl object-cover shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-gray-900 truncate">{property.title}</p>
+                        <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5 truncate">
+                          <MapPin className="h-3 w-3 shrink-0" /> {property.location}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                            property.status === 'approved' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                          )}>
+                            {property.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                      <p className="font-bold text-blue-600">{formatPrice(property.price)}</p>
+                      <div className="flex items-center gap-2">
+                        {isEditable(property.created_at) ? (
+                          <div className="flex flex-col items-end gap-1">
+                            <button 
+                              onClick={() => handleEdit(property)}
+                              disabled={profile?.status === 'suspended'}
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                                profile?.status === 'suspended' ? "bg-gray-50 text-gray-300 cursor-not-allowed" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                              )}
+                            >
+                              <Edit className="h-3.5 w-3.5" /> Edit
+                            </button>
+                            {profile?.role !== 'admin' && (
+                              <span className="text-[9px] font-bold text-orange-500">
+                                {getTimeRemaining(property.created_at)} left
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 bg-gray-50 rounded-lg">
+                            Locked
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => setShowDeleteConfirm(property.id)}
+                          disabled={profile?.status === 'suspended'}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                            profile?.status === 'suspended' ? "bg-gray-50 text-gray-300 cursor-not-allowed" : "bg-red-50 text-red-600 hover:bg-red-100"
+                          )}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </motion.div>

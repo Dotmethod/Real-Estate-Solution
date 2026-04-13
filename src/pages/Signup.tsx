@@ -137,11 +137,11 @@ export default function Signup() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-xl w-full bg-white rounded-[2.5rem] p-10 shadow-xl shadow-gray-200/50 border border-gray-100"
+        className="max-w-xl w-full bg-white rounded-2xl md:rounded-[2.5rem] p-6 md:p-10 shadow-xl shadow-gray-200/50 border border-gray-100"
       >
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-black text-gray-900 mb-2">Join Real Estate Solution</h1>
-          <p className="text-gray-500">Choose your account type and start listing today</p>
+        <div className="text-center mb-8 md:mb-10">
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 mb-2">Join Real Estate Solution</h1>
+          <p className="text-sm md:text-base text-gray-500">Choose your account type and start listing today</p>
         </div>
 
         {error && (
@@ -158,33 +158,33 @@ export default function Signup() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 mb-10">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 mb-8 md:mb-10">
           <button
             onClick={() => setRole('agent')}
             className={cn(
-              "p-6 rounded-2xl border-2 transition-all text-left",
+              "p-4 md:p-6 rounded-xl md:rounded-2xl border-2 transition-all text-left",
               role === 'agent' ? "border-blue-600 bg-blue-50/50" : "border-gray-100 hover:border-gray-200"
             )}
           >
-            <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center mb-4", role === 'agent' ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500")}>
-              <ShieldCheck className="h-6 w-6" />
+            <div className={cn("h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl flex items-center justify-center mb-3 md:mb-4", role === 'agent' ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500")}>
+              <ShieldCheck className="h-5 w-5 md:h-6 md:w-6" />
             </div>
-            <p className="font-bold text-gray-900">Agent</p>
-            <p className="text-xs text-gray-500 mt-1">I represent an agency</p>
+            <p className="text-sm md:text-base font-bold text-gray-900">Agent</p>
+            <p className="text-[10px] md:text-xs text-gray-500 mt-1">I represent an agency</p>
           </button>
           
           <button
             onClick={() => setRole('owner')}
             className={cn(
-              "p-6 rounded-2xl border-2 transition-all text-left",
+              "p-4 md:p-6 rounded-xl md:rounded-2xl border-2 transition-all text-left",
               role === 'owner' ? "border-blue-600 bg-blue-50/50" : "border-gray-100 hover:border-gray-200"
             )}
           >
-            <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center mb-4", role === 'owner' ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500")}>
-              <User className="h-6 w-6" />
+            <div className={cn("h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl flex items-center justify-center mb-3 md:mb-4", role === 'owner' ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500")}>
+              <User className="h-5 w-5 md:h-6 md:w-6" />
             </div>
-            <p className="font-bold text-gray-900">Owner</p>
-            <p className="text-xs text-gray-500 mt-1">I own the property</p>
+            <p className="text-sm md:text-base font-bold text-gray-900">Owner</p>
+            <p className="text-[10px] md:text-xs text-gray-500 mt-1">I own the property</p>
           </button>
         </div>
 
