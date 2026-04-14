@@ -126,11 +126,16 @@ export default function Login() {
   const handleResendVerification = async () => {
     setResendLoading(true);
     try {
+      let origin = process.env.APP_URL || window.location.origin;
+      if (origin.includes('localhost') && !window.location.hostname.includes('localhost')) {
+        origin = `${window.location.protocol}//${window.location.host}`;
+      }
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: email,
         options: {
-          emailRedirectTo: `${window.location.origin}/email-confirmation`,
+          emailRedirectTo: `${origin}/email-confirmation`,
         },
       });
       if (error) throw error;

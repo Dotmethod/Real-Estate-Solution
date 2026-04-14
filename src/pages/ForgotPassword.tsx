@@ -36,8 +36,20 @@ export default function ForgotPassword() {
     setError('');
 
     try {
+      let origin = process.env.APP_URL || window.location.origin;
+      
+      // If we are in the AI Studio preview and origin is localhost, 
+      // it's likely wrong for an email redirect.
+      if (origin.includes('localhost') && !window.location.hostname.includes('localhost')) {
+        // Try to use the actual hostname from the browser if it's not localhost
+        origin = `${window.location.protocol}//${window.location.host}`;
+      }
+      
+      const redirectTo = `${origin}/reset-password`;
+      console.log('Password reset redirect URL:', redirectTo);
+      
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: redirectTo,
       });
 
       if (resetError) throw resetError;

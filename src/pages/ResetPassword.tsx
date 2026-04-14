@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Lock, ArrowRight, Building2, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
   
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,36 +13,41 @@ export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
-      // If we are resetting password, we might be "half-logged in" by Supabase
-      // but we only want to redirect if they are fully authenticated and NOT trying to reset
-      if (!token) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profile?.role === 'admin') {
-            navigate('/admin');
-          } else {
-            navigate('/dashboard');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // If we have a session, we are authorized to reset the password
+      // Supabase establishes a session when clicking the reset link
+      if (session) {
+        setIsAuthorized(true);
+      } else {
+        // If no session, check if we just landed from a reset link (which might be in the hash)
+        // The Supabase client handles the hash, but it might take a moment
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'PASSWORD_RECOVERY' || session) {
+            setIsAuthorized(true);
           }
-        }
+        });
+
+        // Give it a small timeout to pick up the session from hash if it exists
+        setTimeout(async () => {
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          if (currentSession) {
+            setIsAuthorized(true);
+          } else if (!isAuthorized) {
+            setError('Invalid or expired reset link. Please request a new one from the forgot password page.');
+          }
+        }, 1500);
+
+        return () => subscription.unsubscribe();
       }
     };
+    
     checkSession();
-  }, [navigate, token]);
-
-  useEffect(() => {
-    if (!token) {
-      setError('Invalid or expired reset link. Please request a new one.');
-    }
-  }, [token]);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +69,9 @@ export default function ResetPassword() {
       });
 
       if (resetError) throw resetError;
+      
+      // Sign out after reset to force a fresh login
+      await supabase.auth.signOut();
       
       setIsSuccess(true);
     } catch (err: any) {
@@ -163,7 +169,7 @@ export default function ResetPassword() {
 
           <button
             type="submit"
-            disabled={isLoading || !token}
+            disabled={isLoading || !isAuthorized}
             className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Resetting...' : 'Reset Password'} <ArrowRight className="h-5 w-5" />

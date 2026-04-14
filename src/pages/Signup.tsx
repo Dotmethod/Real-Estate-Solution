@@ -42,11 +42,16 @@ export default function Signup() {
       // Automatically assign admin role to the developer/owner email
       const finalRole = email.toLowerCase() === 'ebokpo.method@gmail.com' ? 'admin' : role;
 
+      let origin = process.env.APP_URL || window.location.origin;
+      if (origin.includes('localhost') && !window.location.hostname.includes('localhost')) {
+        origin = `${window.location.protocol}//${window.location.host}`;
+      }
+
       const { data, error: signupError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/email-confirmation`,
+          emailRedirectTo: `${origin}/email-confirmation`,
           data: {
             full_name: name,
             role: finalRole,
