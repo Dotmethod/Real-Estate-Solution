@@ -4,7 +4,7 @@ import { usePaystackPayment } from 'react-paystack';
 import { CheckCircle, CreditCard, Loader2 } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 interface SubscriptionPlan {
@@ -21,6 +21,7 @@ interface SubscriptionPlan {
 
 export default function Pricing() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -62,6 +63,24 @@ export default function Pricing() {
     fetchPlans();
     checkUser();
   }, []);
+
+  // Handle plan selection from query parameter
+  useEffect(() => {
+    if (!isLoading && plans.length > 0) {
+      const params = new URLSearchParams(location.search);
+      const planId = params.get('plan');
+      if (planId) {
+        const plan = plans.find(p => p.id === planId);
+        if (plan) {
+          // If user is logged in, hide the free plan (price 0)
+          // This matches the filtering logic in the render
+          if (user && plan.price === 0) return;
+          
+          handleSubscribe(plan);
+        }
+      }
+    }
+  }, [isLoading, plans, location.search, user]);
 
   const config = {
     reference: (new Date()).getTime().toString(),

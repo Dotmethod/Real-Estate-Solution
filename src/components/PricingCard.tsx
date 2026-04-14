@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { SubscriptionPlan } from '../types';
 import { Check } from 'lucide-react';
 import { formatPrice } from '../lib/utils';
@@ -59,14 +60,17 @@ export default function PricingCard({ plan, isPopular }: PricingCardProps) {
         ))}
       </ul>
       
-      <button className={cn(
-        "w-full py-4 rounded-xl font-bold transition-all duration-300",
-        isPopular
-          ? "bg-blue-600 text-white hover:bg-blue-700"
-          : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-      )}>
+      <Link 
+        to={`/pricing?plan=${plan.id}`}
+        className={cn(
+          "w-full py-4 rounded-xl font-bold transition-all duration-300 flex items-center justify-center",
+          isPopular
+            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-900/20"
+            : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+        )}
+      >
         Get Started
-      </button>
+      </Link>
     </motion.div>
   );
 }
