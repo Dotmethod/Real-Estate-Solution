@@ -118,6 +118,111 @@ export async function createServer() {
     }
   });
 
+  // Admin: Permanently Delete User
+  app.post('/api/admin/delete-user', async (req, res) => {
+    const { userId, adminId } = req.body;
+    console.log(`[ADMIN DELETE USER] Request from admin ${adminId} to delete user ${userId}`);
+
+    if (!userId || !adminId) {
+      return res.status(400).json({ error: 'User ID and Admin ID are required' });
+    }
+
+    try {
+      // 1. Verify the requester is an admin
+      const { data: adminProfile, error: adminError } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', adminId)
+        .single();
+
+      if (adminError) {
+        console.error(`[ADMIN DELETE USER] Admin verification error:`, adminError);
+        return res.status(500).json({ error: 'Failed to verify admin status' });
+      }
+
+      if (adminProfile?.role !== 'admin') {
+        console.warn(`[ADMIN DELETE USER] Unauthorized attempt by user ${adminId} (role: ${adminProfile?.role})`);
+        return res.status(403).json({ error: 'Unauthorized. Admin privileges required.' });
+      }
+
+      // 2. Delete user's properties first (to avoid foreign key constraints)
+      console.log(`[ADMIN DELETE USER] Deleting properties for user: ${userId}`);
+      const { error: propsDeleteError } = await supabaseAdmin
+        .from('properties')
+        .delete()
+        .eq('agent_id', userId);
+      
+      if (propsDeleteError) {
+        console.error(`[ADMIN DELETE USER] Properties delete error:`, propsDeleteError);
+        // We continue even if this fails, as there might be no properties
+      }
+
+      // 3. Delete from Supabase Auth
+      console.log(`[ADMIN DELETE USER] Deleting from auth: ${userId}`);
+      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (authDeleteError) {
+        console.error(`[ADMIN DELETE USER] Auth delete error:`, authDeleteError);
+        throw authDeleteError;
+      }
+
+      // 4. Delete from profiles table
+      console.log(`[ADMIN DELETE USER] Deleting from profiles: ${userId}`);
+      const { error: profileDeleteError } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+      
+      if (profileDeleteError) {
+        console.error(`[ADMIN DELETE USER] Profile delete error:`, profileDeleteError);
+        throw profileDeleteError;
+      }
+
+      console.log(`[ADMIN DELETE USER] Success! Admin ${adminId} permanently deleted user ${userId}`);
+      res.json({ success: true, message: 'User permanently deleted' });
+    } catch (error: any) {
+      console.error('[ADMIN DELETE USER] Error:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete user' });
+    }
+  });
+
+  // Admin: Permanently Delete Property
+  app.post('/api/admin/delete-property', async (req, res) => {
+    const { propertyId, adminId } = req.body;
+    console.log(`[ADMIN DELETE PROPERTY] Request from admin ${adminId} to delete property ${propertyId}`);
+
+    if (!propertyId || !adminId) {
+      return res.status(400).json({ error: 'Property ID and Admin ID are required' });
+    }
+
+    try {
+      // 1. Verify the requester is an admin
+      const { data: adminProfile, error: adminError } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', adminId)
+        .single();
+
+      if (adminError || adminProfile?.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized. Admin privileges required.' });
+      }
+
+      // 2. Delete from properties table
+      console.log(`[ADMIN DELETE PROPERTY] Deleting from properties: ${propertyId}`);
+      const { error: deleteError } = await supabaseAdmin
+        .from('properties')
+        .delete()
+        .eq('id', propertyId);
+      
+      if (deleteError) throw deleteError;
+
+      console.log(`[ADMIN DELETE PROPERTY] Success! Admin ${adminId} permanently deleted property ${propertyId}`);
+      res.json({ success: true, message: 'Property permanently deleted' });
+    } catch (error: any) {
+      console.error('[ADMIN DELETE PROPERTY] Error:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete property' });
+    }
+  });
+
   // Paystack Verification Endpoint
   app.post('/api/verify-payment', async (req, res) => {
     const { reference, planId, userId } = req.body;

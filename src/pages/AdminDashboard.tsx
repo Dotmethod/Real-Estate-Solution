@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone, AlertTriangle } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
@@ -74,7 +74,9 @@ export default function AdminDashboard() {
     baths: '',
     sqft: '',
     images: [],
-    amenities: [] as string[]
+    amenities: [] as string[],
+    agency_fee: '',
+    inspection_fee: '',
   });
   const [isSubmittingProperty, setIsSubmittingProperty] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -82,6 +84,26 @@ export default function AdminDashboard() {
   const [customAmenity, setCustomAmenity] = useState('');
   const [propertyStatusMessage, setPropertyStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const [isFeaturedOnly, setIsFeaturedOnly] = useState(false);
+  const [adminStatusMessage, setAdminStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'warning';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'warning'
+  });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'warning' = 'warning') => {
+    setConfirmModal({ isOpen: true, title, message, onConfirm, type });
+  };
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -192,6 +214,10 @@ export default function AdminDashboard() {
   const handleEditClick = (user: UserProfile) => {
     setEditingUserId(user.id);
     setEditForm({ 
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone || '',
+      address: user.address || '',
       role: user.role, 
       subscription_plan: user.subscription_plan || 'Starter Plan',
       status: user.status || 'pending'
@@ -225,8 +251,10 @@ export default function AdminDashboard() {
 
       setUsers(users.map(u => u.id === id ? { ...u, ...editForm } : u));
       setEditingUserId(null);
+      setAdminStatusMessage({ type: 'success', text: 'User profile updated successfully.' });
     } catch (error) {
       console.error('Error saving user edits:', error);
+      setAdminStatusMessage({ type: 'error', text: 'Failed to update user profile.' });
     }
   };
 
@@ -269,24 +297,81 @@ export default function AdminDashboard() {
       setProperties(properties.map(p => p.id === id ? { ...p, is_featured: !currentStatus } : p));
     } catch (error) {
       console.error('Error toggling featured status:', error);
-      alert('Failed to update featured status. Please ensure the "is_featured" column exists in your properties table.');
+      setAdminStatusMessage({ 
+        type: 'error', 
+        text: 'Failed to update featured status. Please ensure the "is_featured" column exists in your properties table.' 
+      });
     }
   };
 
   const deleteProperty = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this property? It will be marked as deleted.')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('properties')
-        .update({ status: 'deleted' })
-        .eq('id', id);
-      
-      if (error) throw error;
-      setProperties(properties.map(p => p.id === id ? { ...p, status: 'deleted' } : p));
-    } catch (error) {
-      console.error('Error deleting property:', error);
-    }
+    showConfirm(
+      'Delete Property',
+      'Are you sure you want to delete this property? It will be marked as deleted.',
+      async () => {
+        try {
+          const { error } = await supabase
+            .from('properties')
+            .update({ status: 'deleted' })
+            .eq('id', id);
+          
+          if (error) throw error;
+          setProperties(properties.map(p => p.id === id ? { ...p, status: 'deleted' } : p));
+          setAdminStatusMessage({ type: 'success', text: 'Property marked as deleted.' });
+        } catch (error) {
+          console.error('Error deleting property:', error);
+          setAdminStatusMessage({ type: 'error', text: 'Failed to delete property.' });
+        }
+      }
+    );
+  };
+
+  const permanentlyDeleteUser = async (id: string) => {
+    showConfirm(
+      'Permanently Delete User',
+      'Are you sure you want to PERMANENTLY delete this user? This will remove them from the system entirely and cannot be undone.',
+      async () => {
+        try {
+          const response = await axios.post('/api/admin/delete-user', {
+            userId: id,
+            adminId: user.id
+          });
+          
+          if (response.data.success) {
+            setUsers(users.filter(u => u.id !== id));
+            setAdminStatusMessage({ type: 'success', text: 'User permanently deleted.' });
+          }
+        } catch (error: any) {
+          console.error('Error deleting user:', error);
+          setAdminStatusMessage({ type: 'error', text: error.response?.data?.error || 'Failed to delete user' });
+        }
+      },
+      'danger'
+    );
+  };
+
+  const permanentlyDeleteProperty = async (id: string) => {
+    showConfirm(
+      'Permanently Delete Property',
+      'Are you sure you want to PERMANENTLY delete this property? This action cannot be undone.',
+      async () => {
+        try {
+          const response = await axios.post('/api/admin/delete-property', {
+            propertyId: id,
+            adminId: user.id
+          });
+          
+          if (response.data.success) {
+            setProperties(properties.filter(p => p.id !== id));
+            setAdminStatusMessage({ type: 'success', text: 'Property permanently deleted.' });
+          }
+        } catch (error: any) {
+          console.error('Error deleting property:', error);
+          setAdminStatusMessage({ type: 'error', text: error.response?.data?.error || 'Failed to delete property' });
+        }
+      },
+      'danger'
+    );
   };
 
   const fetchPlans = async () => {
@@ -338,17 +423,24 @@ export default function AdminDashboard() {
   };
 
   const deletePlan = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this plan?')) return;
-    try {
-      const { error } = await supabase
-        .from('subscription_plans')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      fetchPlans();
-    } catch (error) {
-      console.error('Error deleting plan:', error);
-    }
+    showConfirm(
+      'Delete Plan',
+      'Are you sure you want to delete this plan?',
+      async () => {
+        try {
+          const { error } = await supabase
+            .from('subscription_plans')
+            .delete()
+            .eq('id', id);
+          if (error) throw error;
+          fetchPlans();
+          setAdminStatusMessage({ type: 'success', text: 'Plan deleted successfully.' });
+        } catch (error) {
+          console.error('Error deleting plan:', error);
+          setAdminStatusMessage({ type: 'error', text: 'Failed to delete plan.' });
+        }
+      }
+    );
   };
 
   const addFeature = () => {
@@ -402,7 +494,9 @@ export default function AdminDashboard() {
       baths: property.baths.toString(),
       sqft: property.sqft.toString(),
       images: property.images || [],
-      amenities: property.amenities || []
+      amenities: property.amenities || [],
+      agency_fee: property.agency_fee?.toString() || '',
+      inspection_fee: property.inspection_fee?.toString() || ''
     });
     setSelectedFiles([]);
     setPreviews([]);
@@ -487,7 +581,9 @@ export default function AdminDashboard() {
           baths: parseInt(propertyForm.baths) || 0,
           sqft: parseInt(propertyForm.sqft) || 0,
           images: finalImages,
-          amenities: propertyForm.amenities
+          amenities: propertyForm.amenities,
+          agency_fee: propertyForm.agency_fee ? parseFloat(propertyForm.agency_fee) : null,
+          inspection_fee: propertyForm.inspection_fee ? parseFloat(propertyForm.inspection_fee) : null
         })
         .eq('id', editingProperty.id);
 
@@ -582,6 +678,24 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {adminStatusMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8"
+        >
+          <div className={cn(
+            "p-4 rounded-2xl font-bold text-sm flex items-center justify-between",
+            adminStatusMessage.type === 'success' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+          )}>
+            <span>{adminStatusMessage.text}</span>
+            <button onClick={() => setAdminStatusMessage(null)} className="p-1 hover:bg-black/5 rounded-full transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {activeTab === 'properties' && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
           <div className="flex items-center gap-4">
@@ -642,18 +756,66 @@ export default function AdminDashboard() {
                             )}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
-                            <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                            {editingUserId === user.id ? (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={editForm.full_name}
+                                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                                  className="text-sm font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
+                                  placeholder="Full Name"
+                                />
+                                <input
+                                  type="email"
+                                  value={editForm.email}
+                                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                  className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
+                                  placeholder="Email"
+                                />
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
+                                <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                              </>
+                            )}
                             <div className="flex flex-col gap-0.5 mt-1">
-                              {user.phone && (
-                                <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
-                                  <Phone className="h-2.5 w-2.5" /> {user.phone}
-                                </p>
-                              )}
-                              {user.address && (
-                                <p className="text-[10px] text-gray-400 flex items-center gap-1 max-w-[200px] truncate">
-                                  <MapPin className="h-2.5 w-2.5 shrink-0" /> {user.address}
-                                </p>
+                              {editingUserId === user.id ? (
+                                <div className="space-y-1 mt-1">
+                                  <div className="flex items-center gap-1">
+                                    <Phone className="h-2.5 w-2.5 text-blue-600" />
+                                    <input
+                                      type="text"
+                                      value={editForm.phone}
+                                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                      className="text-[10px] text-blue-600 font-bold bg-gray-50 border border-gray-200 rounded px-1 py-0.5 w-full focus:outline-none focus:border-blue-600"
+                                      placeholder="Phone"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="h-2.5 w-2.5 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      value={editForm.address}
+                                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                                      className="text-[10px] text-gray-400 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 w-full focus:outline-none focus:border-blue-600"
+                                      placeholder="Address"
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  {user.phone && (
+                                    <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
+                                      <Phone className="h-2.5 w-2.5" /> {user.phone}
+                                    </p>
+                                  )}
+                                  {user.address && (
+                                    <p className="text-[10px] text-gray-400 flex items-center gap-1 max-w-[200px] truncate">
+                                      <MapPin className="h-2.5 w-2.5 shrink-0" /> {user.address}
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
@@ -749,13 +911,6 @@ export default function AdminDashboard() {
                                   >
                                     <XCircle className="h-4 w-4" />
                                   </button>
-                                  <button
-                                    onClick={() => updateUserStatus(user.id, 'suspended')}
-                                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                    title="Suspend User"
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                  </button>
                                 </>
                               )}
                               <button
@@ -783,6 +938,13 @@ export default function AdminDashboard() {
                                   <CheckCircle className="h-4 w-4" />
                                 </button>
                               )}
+                              <button
+                                onClick={() => permanentlyDeleteUser(user.id)}
+                                className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                title="Permanently Delete User"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </>
                           )}
                         </div>
@@ -816,8 +978,29 @@ export default function AdminDashboard() {
                         )}
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
-                        <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                        {editingUserId === user.id ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={editForm.full_name}
+                              onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                              className="w-full text-sm font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-blue-600"
+                              placeholder="Full Name"
+                            />
+                            <input
+                              type="email"
+                              value={editForm.email}
+                              onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                              className="w-full text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-blue-600"
+                              placeholder="Email"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <p className="font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
+                            <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     <span className={cn(
@@ -830,6 +1013,31 @@ export default function AdminDashboard() {
                       {user.status || 'pending'}
                     </span>
                   </div>
+
+                  {editingUserId === user.id && (
+                    <div className="grid grid-cols-1 gap-3 bg-blue-50/50 p-3 rounded-2xl border border-blue-100">
+                      <div>
+                        <p className="text-[10px] text-blue-600 uppercase font-bold mb-1">Phone</p>
+                        <input
+                          type="text"
+                          value={editForm.phone}
+                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                          className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                          placeholder="Phone Number"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-blue-600 uppercase font-bold mb-1">Address</p>
+                        <input
+                          type="text"
+                          value={editForm.address}
+                          onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                          className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
+                          placeholder="Address"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-2xl">
                     <div>
@@ -929,6 +1137,13 @@ export default function AdminDashboard() {
                             <CheckCircle className="h-4 w-4" />
                           </button>
                         )}
+                        <button
+                          onClick={() => permanentlyDeleteUser(user.id)}
+                          className="p-2 bg-red-50 text-red-600 rounded-xl"
+                          title="Permanently Delete User"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </>
                     )}
                   </div>
@@ -1016,6 +1231,12 @@ export default function AdminDashboard() {
                         <Trash2 className="h-3.5 w-3.5" /> Delete Property
                       </button>
                     )}
+                    <button
+                      onClick={() => permanentlyDeleteProperty(property.id)}
+                      className="py-2.5 bg-red-900 text-white rounded-xl font-bold hover:bg-red-950 transition-all text-xs flex items-center justify-center gap-2 sm:col-span-2"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> PERMANENTLY Delete
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1382,6 +1603,26 @@ export default function AdminDashboard() {
                     <option value="short-let">Short Let</option>
                   </select>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Agency Fee (₦) - Optional</label>
+                  <input
+                    type="number"
+                    value={propertyForm.agency_fee}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, agency_fee: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                    placeholder="e.g. 50000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Inspection Fee (₦) - Optional</label>
+                  <input
+                    type="number"
+                    value={propertyForm.inspection_fee}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, inspection_fee: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                    placeholder="e.g. 5000"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1562,6 +1803,53 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+          >
+            <div className="flex items-center gap-4 mb-6">
+              <div className={cn(
+                "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0",
+                confirmModal.type === 'danger' ? "bg-red-100" : "bg-yellow-100"
+              )}>
+                <AlertTriangle className={cn(
+                  "h-6 w-6",
+                  confirmModal.type === 'danger' ? "text-red-600" : "text-yellow-600"
+                )} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">{confirmModal.title}</h2>
+                <p className="text-sm text-gray-500">{confirmModal.message}</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                className="flex-1 px-6 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal({ ...confirmModal, isOpen: false });
+                }}
+                className={cn(
+                  "flex-1 px-6 py-3 text-white rounded-xl font-bold transition-all shadow-lg",
+                  confirmModal.type === 'danger' ? "bg-red-600 hover:bg-red-700 shadow-red-200" : "bg-yellow-600 hover:bg-yellow-700 shadow-yellow-200"
+                )}
+              >
+                Confirm
+              </button>
+            </div>
           </motion.div>
         </div>
       )}

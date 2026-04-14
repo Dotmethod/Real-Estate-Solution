@@ -23,6 +23,8 @@ interface Property {
   agent_id: string;
   created_at: string;
   amenities?: string[];
+  agency_fee?: number;
+  inspection_fee?: number;
 }
 
 export default function AgentDashboard() {
@@ -64,6 +66,8 @@ export default function AgentDashboard() {
     baths: '',
     sqft: '',
     amenities: [] as string[],
+    agency_fee: '',
+    inspection_fee: '',
   });
 
   useEffect(() => {
@@ -415,6 +419,8 @@ export default function AgentDashboard() {
         beds: parseInt(formData.beds) || 0,
         baths: parseInt(formData.baths) || 0,
         sqft: parseInt(formData.sqft) || 0,
+        agency_fee: formData.agency_fee ? parseFloat(formData.agency_fee) : null,
+        inspection_fee: formData.inspection_fee ? parseFloat(formData.inspection_fee) : null,
         agent_id: user.id,
         status: 'approved',
         amenities: formData.amenities,
@@ -548,6 +554,8 @@ export default function AgentDashboard() {
       baths: property.baths.toString(),
       sqft: property.sqft.toString(),
       amenities: property.amenities || [],
+      agency_fee: property.agency_fee?.toString() || '',
+      inspection_fee: property.inspection_fee?.toString() || '',
     });
     setSelectedFiles(property.images);
     setPreviews(property.images);
@@ -1297,6 +1305,26 @@ export default function AgentDashboard() {
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none" 
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Agency Fee (₦) - Optional</label>
+                  <input 
+                    type="number" 
+                    value={formData.agency_fee}
+                    onChange={(e) => setFormData({ ...formData, agency_fee: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                    placeholder="e.g. 50000" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Inspection Fee (₦) - Optional</label>
+                  <input 
+                    type="number" 
+                    value={formData.inspection_fee}
+                    onChange={(e) => setFormData({ ...formData, inspection_fee: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                    placeholder="e.g. 5000" 
+                  />
                 </div>
               </div>
               

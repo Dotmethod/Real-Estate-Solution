@@ -174,6 +174,20 @@ export default function PropertyDetail() {
                 <div className="text-left md:text-right">
                   <p className="text-gray-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-1">Price</p>
                   <p className="text-3xl md:text-5xl font-black text-blue-600">{formatPrice(property.price)}</p>
+                  {(property.agency_fee || property.inspection_fee) && (
+                    <div className="mt-3 flex flex-col gap-1">
+                      {property.agency_fee && (
+                        <p className="text-xs md:text-sm font-bold text-gray-600">
+                          Agency Fee: <span className="text-blue-600">{formatPrice(property.agency_fee)}</span>
+                        </p>
+                      )}
+                      {property.inspection_fee && (
+                        <p className="text-xs md:text-sm font-bold text-gray-600">
+                          Inspection Fee: <span className="text-blue-600">{formatPrice(property.inspection_fee)}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
