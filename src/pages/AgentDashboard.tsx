@@ -443,6 +443,25 @@ export default function AgentDashboard() {
           .select();
       }
 
+      // Graceful fallback if columns are missing in database
+      if (result.error && result.error.message?.includes('column') && 
+         (result.error.message?.includes('agency_fee') || result.error.message?.includes('inspection_fee'))) {
+        console.warn('Fee columns missing in database, retrying without them...');
+        const { agency_fee, inspection_fee, ...safeData } = propertyData;
+        if (editingProperty) {
+          result = await supabase
+            .from('properties')
+            .update(safeData)
+            .eq('id', editingProperty.id)
+            .select();
+        } else {
+          result = await supabase
+            .from('properties')
+            .insert([safeData])
+            .select();
+        }
+      }
+
       const { error, data } = result;
 
       if (error) {

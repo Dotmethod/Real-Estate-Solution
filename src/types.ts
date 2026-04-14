@@ -26,6 +26,8 @@ export interface Property {
   status: 'pending' | 'approved' | 'sold' | 'rented' | 'deleted';
   created_at: string;
   amenities?: string[];
+  agency_fee?: number;
+  inspection_fee?: number;
 }
 
 export interface SubscriptionPlan {

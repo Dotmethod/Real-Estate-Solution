@@ -568,24 +568,38 @@ export default function AdminDashboard() {
       // 3. Update property in database
       const finalLocation = `${propertyForm.location.trim()}, ${propertyForm.lga}, ${propertyForm.state}`;
 
-      const { error } = await supabase
+      const propertyData = {
+        title: propertyForm.title,
+        price: parseFloat(propertyForm.price),
+        location: finalLocation,
+        type: propertyForm.type,
+        listing_status: propertyForm.listing_status,
+        description: propertyForm.description,
+        beds: parseInt(propertyForm.beds) || 0,
+        baths: parseInt(propertyForm.baths) || 0,
+        sqft: parseInt(propertyForm.sqft) || 0,
+        images: finalImages,
+        amenities: propertyForm.amenities,
+        agency_fee: propertyForm.agency_fee ? parseFloat(propertyForm.agency_fee) : null,
+        inspection_fee: propertyForm.inspection_fee ? parseFloat(propertyForm.inspection_fee) : null
+      };
+
+      let { error } = await supabase
         .from('properties')
-        .update({
-          title: propertyForm.title,
-          price: parseFloat(propertyForm.price),
-          location: finalLocation,
-          type: propertyForm.type,
-          listing_status: propertyForm.listing_status,
-          description: propertyForm.description,
-          beds: parseInt(propertyForm.beds) || 0,
-          baths: parseInt(propertyForm.baths) || 0,
-          sqft: parseInt(propertyForm.sqft) || 0,
-          images: finalImages,
-          amenities: propertyForm.amenities,
-          agency_fee: propertyForm.agency_fee ? parseFloat(propertyForm.agency_fee) : null,
-          inspection_fee: propertyForm.inspection_fee ? parseFloat(propertyForm.inspection_fee) : null
-        })
+        .update(propertyData)
         .eq('id', editingProperty.id);
+
+      // Graceful fallback if columns are missing
+      if (error && error.message?.includes('column') && 
+         (error.message?.includes('agency_fee') || error.message?.includes('inspection_fee'))) {
+        console.warn('Fee columns missing in database, retrying without them...');
+        const { agency_fee, inspection_fee, ...safeData } = propertyData;
+        const retryResult = await supabase
+          .from('properties')
+          .update(safeData)
+          .eq('id', editingProperty.id);
+        error = retryResult.error;
+      }
 
       if (error) throw error;
 
