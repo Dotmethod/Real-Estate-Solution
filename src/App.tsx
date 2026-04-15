@@ -13,6 +13,7 @@ import ResetPassword from './pages/ResetPassword';
 import EmailConfirmation from './pages/EmailConfirmation';
 import PropertyDetail from './pages/PropertyDetail';
 import Properties from './pages/Properties';
+import ErrorBoundary from './components/ErrorBoundary';
 import { supabase } from './lib/supabase';
 import PropertyCard from './components/PropertyCard';
 
@@ -25,7 +26,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/properties" element={<Properties />} />
-          <Route path="/properties/:id" element={<PropertyDetail />} />
+          <Route path="/properties/:id" element={
+            <ErrorBoundary>
+              <PropertyDetail />
+            </ErrorBoundary>
+          } />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />

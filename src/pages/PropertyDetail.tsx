@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import axios from 'axios';
+import 'leaflet/dist/leaflet.css';
 
 // Fix Leaflet marker icon issue
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -38,9 +39,45 @@ export default function PropertyDetail() {
       if (!property?.location) return;
       setIsGeocoding(true);
       try {
-        const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(property.location)}&limit=1`);
+        // Try 1: Full address
+        let response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(property.location)}&limit=1`);
+        
         if (response.data && response.data.length > 0) {
-          setCoordinates([parseFloat(response.data[0].lat), parseFloat(response.data[0].lon)]);
+          const lat = parseFloat(response.data[0].lat);
+          const lon = parseFloat(response.data[0].lon);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            setCoordinates([lat, lon]);
+            return;
+          }
+        }
+
+        // Try 2: Fallback to LGA and State (assuming format is "Area, LGA, State")
+        const parts = property.location.split(',').map((p: string) => p.trim());
+        if (parts.length >= 2) {
+          const lgaState = parts.slice(-2).join(', ');
+          response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(lgaState)}&limit=1`);
+          if (response.data && response.data.length > 0) {
+            const lat = parseFloat(response.data[0].lat);
+            const lon = parseFloat(response.data[0].lon);
+            if (!isNaN(lat) && !isNaN(lon)) {
+              setCoordinates([lat, lon]);
+              return;
+            }
+          }
+        }
+
+        // Try 3: Fallback to just State
+        if (parts.length >= 1) {
+          const state = parts[parts.length - 1];
+          response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(state)}&limit=1`);
+          if (response.data && response.data.length > 0) {
+            const lat = parseFloat(response.data[0].lat);
+            const lon = parseFloat(response.data[0].lon);
+            if (!isNaN(lat) && !isNaN(lon)) {
+              setCoordinates([lat, lon]);
+              return;
+            }
+          }
         }
       } catch (error) {
         console.error('Geocoding error:', error);
@@ -56,34 +93,44 @@ export default function PropertyDetail() {
 
   React.useEffect(() => {
     const fetchProperty = async () => {
+      if (!id) return;
       setIsLoading(true);
       try {
         console.log('Fetching property with ID:', id);
-        // Using explicit join syntax to ensure we get the agent profile correctly
-        const { data, error } = await supabase
+        
+        // Fetch property first
+        const { data: propertyData, error: propertyError } = await supabase
           .from('properties')
-          .select('*, agent:agent_id(*)')
+          .select('*')
           .eq('id', id)
           .single();
 
-        if (error) {
-          console.error('Supabase error fetching property:', error);
-          throw error;
+        if (propertyError) {
+          console.error('Supabase error fetching property:', propertyError);
+          throw propertyError;
         }
         
-        console.log('Property data fetched:', data);
-        if (data && !data.agent) {
-          console.warn('Property found but no associated agent profile found for agent_id:', data.agent_id);
+        if (propertyData) {
+          // Fetch agent separately for robustness
+          const { data: agentData, error: agentError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', propertyData.agent_id)
+            .single();
+          
+          if (agentError) {
+            console.warn('Error fetching agent profile:', agentError);
+          }
+          
+          setProperty({ ...propertyData, agent: agentData });
         }
-        
-        setProperty(data);
       } catch (error) {
-        console.error('Error fetching property:', error);
+        console.error('Error in fetchProperty:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    if (id) fetchProperty();
+    fetchProperty();
   }, [id]);
 
   if (isLoading) {
@@ -103,8 +150,12 @@ export default function PropertyDetail() {
     );
   }
 
-  // Extract agent details from the explicit join
-  const agent = Array.isArray(property.agent) ? property.agent[0] : property.agent;
+  // Extract agent details
+  const agent = property?.agent || null;
+
+  const price = typeof property.price === 'number' ? property.price : parseFloat(property.price) || 0;
+  const agencyFee = property.agency_fee ? (typeof property.agency_fee === 'number' ? property.agency_fee : parseFloat(property.agency_fee) || 0) : null;
+  const inspectionFee = property.inspection_fee ? (typeof property.inspection_fee === 'number' ? property.inspection_fee : parseFloat(property.inspection_fee) || 0) : null;
 
   return (
     <div className="pt-24 pb-20 bg-gray-50 min-h-screen">
@@ -197,17 +248,17 @@ export default function PropertyDetail() {
                 </div>
                 <div className="text-left md:text-right">
                   <p className="text-gray-400 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-1">Price</p>
-                  <p className="text-3xl md:text-5xl font-black text-blue-600">{formatPrice(property.price)}</p>
-                  {(property.agency_fee || property.inspection_fee) && (
+                  <p className="text-3xl md:text-5xl font-black text-blue-600">{formatPrice(price)}</p>
+                  {(agencyFee || inspectionFee) && (
                     <div className="mt-3 flex flex-col gap-1">
-                      {property.agency_fee && (
+                      {agencyFee && (
                         <p className="text-xs md:text-sm font-bold text-gray-600">
-                          Agency Fee: <span className="text-blue-600">{formatPrice(property.agency_fee)}</span>
+                          Agency Fee: <span className="text-blue-600">{formatPrice(agencyFee)}</span>
                         </p>
                       )}
-                      {property.inspection_fee && (
+                      {inspectionFee && (
                         <p className="text-xs md:text-sm font-bold text-gray-600">
-                          Inspection Fee: <span className="text-blue-600">{formatPrice(property.inspection_fee)}</span>
+                          Inspection Fee: <span className="text-blue-600">{formatPrice(inspectionFee)}</span>
                         </p>
                       )}
                     </div>
@@ -295,6 +346,7 @@ export default function PropertyDetail() {
               <div className="h-[400px] rounded-2xl md:rounded-[2rem] overflow-hidden border border-gray-100 relative z-0">
                 {coordinates ? (
                   <MapContainer 
+                    key={`${coordinates[0]}-${coordinates[1]}`}
                     center={coordinates} 
                     zoom={16} 
                     scrollWheelZoom={false}
@@ -314,7 +366,7 @@ export default function PropertyDetail() {
                             referrerPolicy="no-referrer"
                           />
                           <div className="font-black text-gray-900 text-sm mb-1">{property.title}</div>
-                          <div className="text-blue-600 font-bold text-xs mb-2">{formatPrice(property.price)}</div>
+                          <div className="text-blue-600 font-bold text-xs mb-2">{formatPrice(price)}</div>
                           <div className="flex items-center gap-1 text-gray-500 text-[10px] mb-3">
                             <MapPin className="h-3 w-3 shrink-0" />
                             <span className="truncate">{property.location}</span>
@@ -340,11 +392,20 @@ export default function PropertyDetail() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full w-full bg-gray-50 flex items-center justify-center p-8 text-center">
-                    <div className="flex flex-col items-center gap-3">
+                  <div className="h-full w-full bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
+                    <div className="flex flex-col items-center gap-3 mb-6">
                       <MapPin className="h-8 w-8 text-gray-300" />
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Map location unavailable for this address</p>
                     </div>
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.location)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-50 transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Try Google Maps
+                    </a>
                   </div>
                 )}
               </div>
