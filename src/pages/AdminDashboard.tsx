@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone, AlertTriangle, Mail, ShieldCheck } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
@@ -36,7 +36,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') as 'users' | 'properties' | 'stats' | 'profile' | 'plans' || 'users';
-  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'stats' | 'profile' | 'plans'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'stats' | 'profile' | 'plans' | 'settings'>(initialTab as any);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -44,6 +44,11 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
+  
+  // SMTP Test State
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpTestEmail, setSmtpTestEmail] = useState('');
+  const [smtpTestResult, setSmtpTestResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
   // Plan Management State
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -673,6 +678,29 @@ export default function AdminDashboard() {
     setCustomAmenity('');
   };
 
+  const testSmtp = async () => {
+    if (!smtpTestEmail) {
+      setSmtpTestResult({ type: 'error', message: 'Please enter a test email address.' });
+      return;
+    }
+
+    setIsTestingSmtp(true);
+    setSmtpTestResult(null);
+
+    try {
+      const response = await axios.post('/api/test-smtp', { email: smtpTestEmail });
+      if (response.data.success) {
+        setSmtpTestResult({ type: 'success', message: 'Test email sent successfully! Please check your inbox.' });
+      }
+    } catch (error: any) {
+      console.error('SMTP Test Error:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to send test email.';
+      setSmtpTestResult({ type: 'error', message: `SMTP Error: ${errorMsg}` });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
   const DEFAULT_AMENITIES = ['Swimming Pool', 'Gym', 'Air Conditioning', 'Security', 'Parking', 'WiFi', 'Generator', 'Elevator', 'Furnished'];
 
   return (
@@ -729,6 +757,15 @@ export default function AdminDashboard() {
               )}
             >
               Profile
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={cn(
+                "px-4 md:px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
+                activeTab === 'settings' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              Settings
             </button>
           </div>
         </div>
@@ -1414,6 +1451,99 @@ export default function AdminDashboard() {
         {activeTab === 'profile' && user && (
           <div className="max-w-3xl mx-auto">
             <ProfileSection userId={user.id} />
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="max-w-3xl mx-auto space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm"
+            >
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                  <Mail className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Email Configuration (SMTP)</h2>
+                  <p className="text-sm text-gray-500">Test your email delivery settings.</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    <strong>Note:</strong> SMTP settings are managed via the environment variables (SMTP_HOST, SMTP_PORT, etc.). Use this tool to verify if the current configuration is working.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Test Recipient Email</label>
+                    <div className="flex gap-3">
+                      <input
+                        type="email"
+                        value={smtpTestEmail}
+                        onChange={(e) => setSmtpTestEmail(e.target.value)}
+                        className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="your-email@example.com"
+                      />
+                      <button
+                        onClick={testSmtp}
+                        disabled={isTestingSmtp}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {isTestingSmtp ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Testing...
+                          </>
+                        ) : (
+                          'Send Test Email'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {smtpTestResult && (
+                    <div className={cn(
+                      "p-4 rounded-xl text-sm font-bold",
+                      smtpTestResult.type === 'success' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                    )}>
+                      {smtpTestResult.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm"
+            >
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-12 w-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">System Information</h2>
+                  <p className="text-sm text-gray-500">Overview of system status and configuration.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">App URL</p>
+                  <p className="text-sm font-bold text-gray-900 truncate">{process.env.APP_URL || window.location.origin}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Environment</p>
+                  <p className="text-sm font-bold text-gray-900 uppercase">{process.env.NODE_ENV || 'development'}</p>
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
       </div>

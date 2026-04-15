@@ -25,7 +25,7 @@ const smtpConfig = {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  from: process.env.SMTP_FROM || 'Real Estate Solution <noreply@realestatesolution.ng>',
+  from: process.env.SMTP_FROM || `Real Estate Solution <${process.env.SMTP_USER}>`,
 };
 
 if (!supabaseUrl || !supabaseServiceKey || !paystackSecretKey) {
@@ -34,6 +34,13 @@ if (!supabaseUrl || !supabaseServiceKey || !paystackSecretKey) {
 
 if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
   console.warn('SMTP configuration is incomplete. Email notifications will not be sent.');
+} else {
+  console.log('SMTP Configured:', {
+    host: smtpConfig.host,
+    port: smtpConfig.port,
+    user: smtpConfig.auth.user,
+    from: smtpConfig.from
+  });
 }
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -42,6 +49,10 @@ const transporter = nodemailer.createTransport({
   port: smtpConfig.port,
   secure: smtpConfig.port === 465,
   auth: smtpConfig.auth,
+  tls: {
+    // Do not fail on invalid certs (common with some SMTP providers)
+    rejectUnauthorized: false
+  }
 });
 
 export async function createServer() {
@@ -101,7 +112,7 @@ export async function createServer() {
             <p>We are excited to inform you that your account on <strong>Real Estate Solution</strong> has been approved by our administrators.</p>
             <p>You can now log in to your dashboard to start managing your properties and listings.</p>
             <div style="text-align: center; margin: 40px 0;">
-              <a href="${process.env.APP_URL}/login" style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Login to Dashboard</a>
+              <a href="${(process.env.APP_URL && !process.env.APP_URL.includes('localhost') ? process.env.APP_URL : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app')}/login" style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Login to Dashboard</a>
             </div>
             <p style="color: #666; font-size: 14px;">If you have any questions, feel free to reply to this email.</p>
             <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
@@ -115,6 +126,151 @@ export async function createServer() {
     } catch (error: any) {
       console.error('Error sending approval email:', error);
       res.status(500).json({ error: 'Failed to send email' });
+    }
+  });
+
+  // Welcome Email Endpoint
+  app.post('/api/send-welcome-email', async (req, res) => {
+    const { email, name } = req.body;
+
+    if (!email || !name) {
+      return res.status(400).json({ error: 'Email and name are required' });
+    }
+
+    if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
+      console.log('SMTP not configured for welcome email');
+      return res.json({ success: true, message: 'SMTP not configured' });
+    }
+
+    try {
+      // Generate a verification link using Supabase Admin SDK
+      const appUrl = process.env.APP_URL && !process.env.APP_URL.includes('localhost') 
+        ? process.env.APP_URL 
+        : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app';
+
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
+        email: email,
+        options: {
+          redirectTo: `${appUrl}/email-confirmation`
+        }
+      });
+
+      if (linkError) {
+        console.error('Error generating verification link:', linkError);
+      }
+
+      const verificationLink = linkData?.properties?.action_link;
+
+      await transporter.sendMail({
+        from: smtpConfig.from,
+        to: email,
+        subject: 'Welcome to Real Estate Solution!',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #2563eb; margin-bottom: 10px;">Welcome!</h1>
+              <p style="color: #666;">Real Estate Solution</p>
+            </div>
+            <p>Hello <strong>${name}</strong>,</p>
+            <p>Thank you for joining <strong>Real Estate Solution</strong>! We're glad to have you with us.</p>
+            
+            <p>To get started, please verify your email address by clicking the button below:</p>
+            
+            <div style="text-align: center; margin: 35px 0;">
+              <a href="${verificationLink || appUrl + '/login'}" 
+                 style="background-color: #2563eb; color: white; padding: 14px 32px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);">
+                Verify My Email Address
+              </a>
+            </div>
+
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0;">
+              <p style="margin: 0; color: #475569; font-size: 14px;">
+                <strong>What happens next?</strong><br>
+                After verification, your account will be reviewed by our administrators. This usually takes less than 24 hours. You'll receive another email once your account is fully approved.
+              </p>
+            </div>
+
+            <p style="color: #666; font-size: 13px;">If the button above doesn't work, copy and paste this link into your browser:</p>
+            <p style="color: #2563eb; font-size: 12px; word-break: break-all;">${verificationLink || 'N/A'}</p>
+
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">&copy; 2026 Real Estate Solution. All rights reserved.</p>
+          </div>
+        `,
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error sending welcome email:', error);
+      res.status(500).json({ error: 'Failed to send email' });
+    }
+  });
+
+  // Admin Notification Endpoint
+  app.post('/api/notify-admin-new-user', async (req, res) => {
+    const { email, name, role } = req.body;
+
+    if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
+      return res.json({ success: true });
+    }
+
+    try {
+      await transporter.sendMail({
+        from: smtpConfig.from,
+        to: process.env.SMTP_USER, // Send to the admin email
+        subject: 'New User Registration - Real Estate Solution',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2>New User Registration</h2>
+            <p>A new user has registered and is awaiting approval:</p>
+            <ul>
+              <li><strong>Name:</strong> ${name}</li>
+              <li><strong>Email:</strong> ${email}</li>
+              <li><strong>Role:</strong> ${role}</li>
+            </ul>
+            <p><a href="${(process.env.APP_URL && !process.env.APP_URL.includes('localhost') ? process.env.APP_URL : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app')}/admin">Go to Admin Dashboard</a></p>
+          </div>
+        `,
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error notifying admin:', error);
+      res.status(500).json({ error: 'Failed to notify admin' });
+    }
+  });
+
+  // SMTP Test Endpoint
+  app.post('/api/test-smtp', async (req, res) => {
+    const { email } = req.body;
+    
+    if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
+      return res.status(400).json({ 
+        error: 'SMTP configuration is incomplete',
+        details: {
+          host: !!smtpConfig.host,
+          user: !!smtpConfig.auth.user,
+          pass: !!smtpConfig.auth.pass
+        }
+      });
+    }
+
+    try {
+      await transporter.verify();
+      await transporter.sendMail({
+        from: smtpConfig.from,
+        to: email || smtpConfig.auth.user,
+        subject: 'SMTP Test - Real Estate Solution',
+        text: 'This is a test email to verify your SMTP configuration is working correctly.',
+      });
+      res.json({ success: true, message: 'Test email sent successfully' });
+    } catch (error: any) {
+      console.error('SMTP Test Error:', error);
+      res.status(500).json({ 
+        error: 'SMTP Test Failed', 
+        message: error.message,
+        code: error.code,
+        command: error.command
+      });
     }
   });
 

@@ -102,6 +102,25 @@ export default function Signup() {
 
         if (profileError) console.error('Error creating/updating profile:', profileError);
 
+        // Send Welcome Email and Notify Admin via Backend
+        try {
+          // Send Welcome Email to User
+          fetch('/api/send-welcome-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, name }),
+          }).catch(err => console.error('Error calling welcome email API:', err));
+
+          // Notify Admin
+          fetch('/api/notify-admin-new-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, name, role: finalRole }),
+          }).catch(err => console.error('Error calling admin notification API:', err));
+        } catch (emailErr) {
+          console.error('Error triggering email notifications:', emailErr);
+        }
+
         // Inform user about email verification
         setStatusMessage('Account created! Please check your email for a verification link. You must verify your email before you can log in.');
         
