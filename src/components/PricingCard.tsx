@@ -37,17 +37,11 @@ export default function PricingCard({ plan, isPopular }: PricingCardProps) {
           <span className="text-4xl font-bold">
             {plan.price === 0 ? 'Free' : formatPrice(plan.price)}
           </span>
-          {plan.price > 0 && (
-            <span className={cn("text-sm", isPopular ? "text-gray-400" : "text-gray-500")}>
-              /{ (plan.interval || plan.duration || 'month').toLowerCase() }
-            </span>
-          )}
         </div>
         <p className={cn("text-sm mt-2", isPopular ? "text-gray-400" : "text-gray-500")}>
           {plan.limits?.properties === -1 ? 'Unlimited properties' : 
            plan.limits?.properties ? `Up to ${plan.limits.properties} properties` : 
-           plan.limit === 'unlimited' ? 'Unlimited properties' : 
-           `Up to ${plan.limit} properties`}
+           'Property listing plan'}
         </p>
       </div>
       

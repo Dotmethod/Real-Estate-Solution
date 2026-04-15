@@ -24,7 +24,6 @@ interface SubscriptionPlan {
   id: string;
   name: string;
   price: number;
-  interval: 'month' | 'year';
   features: string[];
   limits: {
     properties: number;
@@ -52,7 +51,6 @@ export default function AdminDashboard() {
   const [planForm, setPlanForm] = useState<Partial<SubscriptionPlan>>({
     name: '',
     price: 0,
-    interval: 'month',
     features: [],
     limits: { properties: 5, images_per_property: 5 }
   });
@@ -412,7 +410,6 @@ export default function AdminDashboard() {
       setPlanForm({
         name: '',
         price: 0,
-        interval: 'month',
         features: [],
         limits: { properties: 5, images_per_property: 5 }
       });
@@ -460,6 +457,31 @@ export default function AdminDashboard() {
   };
 
   // Property Management Functions
+  const handleCreateProperty = () => {
+    setEditingProperty(null);
+    setPropertyForm({
+      title: '',
+      price: '',
+      location: '',
+      state: '',
+      lga: '',
+      type: 'house',
+      listing_status: 'sale',
+      description: '',
+      beds: '',
+      baths: '',
+      sqft: '',
+      images: [],
+      amenities: [] as string[],
+      agency_fee: '',
+      inspection_fee: '',
+    });
+    setSelectedFiles([]);
+    setPreviews([]);
+    setPropertyStatusMessage(null);
+    setShowPropertyModal(true);
+  };
+
   const handleEditProperty = (property: any) => {
     setEditingProperty(property);
     
@@ -565,10 +587,10 @@ export default function AdminDashboard() {
         throw new Error('At least one image is required.');
       }
 
-      // 3. Update property in database
+      // 3. Save property to database
       const finalLocation = `${propertyForm.location.trim()}, ${propertyForm.lga}, ${propertyForm.state}`;
 
-      const propertyData = {
+      const propertyData: any = {
         title: propertyForm.title,
         price: parseFloat(propertyForm.price),
         location: finalLocation,
@@ -581,29 +603,49 @@ export default function AdminDashboard() {
         images: finalImages,
         amenities: propertyForm.amenities,
         agency_fee: propertyForm.agency_fee ? parseFloat(propertyForm.agency_fee) : null,
-        inspection_fee: propertyForm.inspection_fee ? parseFloat(propertyForm.inspection_fee) : null
+        inspection_fee: propertyForm.inspection_fee ? parseFloat(propertyForm.inspection_fee) : null,
+        status: 'approved'
       };
 
-      let { error } = await supabase
-        .from('properties')
-        .update(propertyData)
-        .eq('id', editingProperty.id);
+      let result;
+      if (editingProperty) {
+        result = await supabase
+          .from('properties')
+          .update(propertyData)
+          .eq('id', editingProperty.id);
+      } else {
+        result = await supabase
+          .from('properties')
+          .insert([{ ...propertyData, agent_id: user.id }]);
+      }
+
+      let { error } = result;
 
       // Graceful fallback if columns are missing
       if (error && error.message?.includes('column') && 
          (error.message?.includes('agency_fee') || error.message?.includes('inspection_fee'))) {
         console.warn('Fee columns missing in database, retrying without them...');
         const { agency_fee, inspection_fee, ...safeData } = propertyData;
-        const retryResult = await supabase
-          .from('properties')
-          .update(safeData)
-          .eq('id', editingProperty.id);
-        error = retryResult.error;
+        
+        if (editingProperty) {
+          result = await supabase
+            .from('properties')
+            .update(safeData)
+            .eq('id', editingProperty.id);
+        } else {
+          result = await supabase
+            .from('properties')
+            .insert([{ ...safeData, agent_id: user.id }]);
+        }
+        error = result.error;
       }
 
       if (error) throw error;
 
-      setPropertyStatusMessage({ type: 'success', text: 'Property updated successfully!' });
+      setPropertyStatusMessage({ 
+        type: 'success', 
+        text: editingProperty ? 'Property updated successfully!' : 'Property listed successfully!' 
+      });
       setTimeout(() => {
         setShowPropertyModal(false);
         setEditingProperty(null);
@@ -712,15 +754,23 @@ export default function AdminDashboard() {
 
       {activeTab === 'properties' && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsFeaturedOnly(!isFeaturedOnly)}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
+                  isFeaturedOnly ? "bg-yellow-50 border-yellow-200 text-yellow-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                )}
+              >
+                {isFeaturedOnly ? "Showing Featured Only" : "Show All Properties"}
+              </button>
+            </div>
             <button
-              onClick={() => setIsFeaturedOnly(!isFeaturedOnly)}
-              className={cn(
-                "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
-                isFeaturedOnly ? "bg-yellow-50 border-yellow-200 text-yellow-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              )}
+              onClick={handleCreateProperty}
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
             >
-              {isFeaturedOnly ? "Showing Featured Only" : "Show All Properties"}
+              <Plus className="h-5 w-5" /> List New Property
             </button>
           </div>
         </div>
@@ -1272,7 +1322,6 @@ export default function AdminDashboard() {
                   setPlanForm({
                     name: '',
                     price: 0,
-                    interval: 'month',
                     features: [],
                     limits: { properties: 5, images_per_property: 5 }
                   });
@@ -1292,7 +1341,6 @@ export default function AdminDashboard() {
                       <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
                       <p className="text-3xl font-bold text-blue-600 mt-2">
                         {formatPrice(plan.price)}
-                        <span className="text-sm text-gray-500 font-normal">/{plan.interval}</span>
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -1411,20 +1459,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Interval</label>
-                  <select
-                    value={planForm.interval}
-                    onChange={(e) => setPlanForm({ ...planForm, interval: e.target.value as 'month' | 'year' })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="month">Monthly</option>
-                    <option value="year">Yearly</option>
-                  </select>
-                </div>
-              </div>
-
               <div className="bg-gray-50 p-6 rounded-2xl space-y-4">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Plan Limits</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1509,7 +1543,7 @@ export default function AdminDashboard() {
             className="bg-white rounded-3xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-black text-gray-900">Edit Property Details</h2>
+              <h2 className="text-2xl font-black text-gray-900">{editingProperty ? 'Edit Property Details' : 'List New Property'}</h2>
               <button 
                 onClick={() => setShowPropertyModal(false)} 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -1806,12 +1840,12 @@ export default function AdminDashboard() {
                   {isSubmittingProperty ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      Saving Changes...
+                      {editingProperty ? 'Saving Changes...' : 'Listing Property...'}
                     </>
                   ) : (
                     <>
                       <Save className="h-5 w-5" />
-                      Save Changes
+                      {editingProperty ? 'Save Changes' : 'List Property'}
                     </>
                   )}
                 </button>

@@ -1,11 +1,12 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail } from 'lucide-react';
+import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail, Map as MapIcon, ExternalLink } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
+import axios from 'axios';
 
 // Fix Leaflet marker icon issue
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -29,6 +30,29 @@ export default function PropertyDetail() {
   const [property, setProperty] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+  const [coordinates, setCoordinates] = React.useState<[number, number] | null>(null);
+  const [isGeocoding, setIsGeocoding] = React.useState(false);
+
+  React.useEffect(() => {
+    const geocodeAddress = async () => {
+      if (!property?.location) return;
+      setIsGeocoding(true);
+      try {
+        const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(property.location)}&limit=1`);
+        if (response.data && response.data.length > 0) {
+          setCoordinates([parseFloat(response.data[0].lat), parseFloat(response.data[0].lon)]);
+        }
+      } catch (error) {
+        console.error('Geocoding error:', error);
+      } finally {
+        setIsGeocoding(false);
+      }
+    };
+
+    if (property) {
+      geocodeAddress();
+    }
+  }, [property?.location]);
 
   React.useEffect(() => {
     const fetchProperty = async () => {
@@ -259,6 +283,78 @@ export default function PropertyDetail() {
 
           {/* Sidebar - Agent Details */}
           <div className="space-y-6 md:space-y-8">
+            {/* Map View */}
+            <div className="bg-white rounded-2xl md:rounded-[3rem] p-6 md:p-8 border border-gray-100 shadow-xl overflow-hidden relative">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="h-8 w-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <MapIcon className="h-4 w-4 text-blue-600" />
+                </div>
+                <h3 className="text-lg md:text-xl font-black text-gray-900">Property Location</h3>
+              </div>
+              
+              <div className="h-[400px] rounded-2xl md:rounded-[2rem] overflow-hidden border border-gray-100 relative z-0">
+                {coordinates ? (
+                  <MapContainer 
+                    center={coordinates} 
+                    zoom={16} 
+                    scrollWheelZoom={false}
+                    className="h-full w-full"
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker position={coordinates}>
+                      <Popup minWidth={200}>
+                        <div className="p-1">
+                          <img 
+                            src={property.images?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=400'} 
+                            alt={property.title}
+                            className="w-full h-24 object-cover rounded-lg mb-2"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="font-black text-gray-900 text-sm mb-1">{property.title}</div>
+                          <div className="text-blue-600 font-bold text-xs mb-2">{formatPrice(property.price)}</div>
+                          <div className="flex items-center gap-1 text-gray-500 text-[10px] mb-3">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{property.location}</span>
+                          </div>
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.location)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Open in Google Maps
+                          </a>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  </MapContainer>
+                ) : isGeocoding ? (
+                  <div className="h-full w-full bg-gray-50 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Locating Property...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full w-full bg-gray-50 flex items-center justify-center p-8 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <MapPin className="h-8 w-8 text-gray-300" />
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Map location unavailable for this address</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-4 flex items-start gap-2 text-gray-500">
+                <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                <span className="text-xs font-medium">{property.location}</span>
+              </div>
+            </div>
+
             <div className="sticky top-24">
               <div className="bg-white rounded-2xl md:rounded-[3rem] p-6 md:p-8 border border-gray-100 shadow-xl overflow-hidden relative">
                 {/* Decorative background element */}

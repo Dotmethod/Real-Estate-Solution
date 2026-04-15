@@ -34,9 +34,6 @@ export interface SubscriptionPlan {
   id: string;
   name: string;
   price: number;
-  interval?: 'month' | 'year';
-  duration?: string; // Fallback for old code
-  limit?: number | 'unlimited'; // Fallback for old code
   limits?: {
     properties: number;
     images_per_property: number;

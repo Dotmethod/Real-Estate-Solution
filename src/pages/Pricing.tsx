@@ -11,7 +11,6 @@ interface SubscriptionPlan {
   id: string;
   name: string;
   price: number;
-  interval: 'month' | 'year';
   features: string[];
   limits: {
     properties: number;
@@ -286,7 +285,6 @@ export default function Pricing() {
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-black text-gray-900">{formatPrice(plan.price)}</span>
-                    <span className="text-gray-500 text-sm">/{plan.interval}</span>
                   </div>
                 </div>
 
