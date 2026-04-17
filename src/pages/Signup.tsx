@@ -12,31 +12,13 @@ export default function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [avatar, setAvatar] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setAvatar(file);
-      setAvatarPreview(URL.createObjectURL(file));
-    }
-  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-
-    if (!avatar && email.toLowerCase() !== 'ebokpo.method@gmail.com') {
-      setError('Please upload a profile image.');
-      setIsLoading(false);
-      return;
-    }
 
     try {
       // Automatically assign admin role to the developer/owner email
@@ -56,8 +38,6 @@ export default function Signup() {
             full_name: name,
             role: finalRole,
             status: finalRole === 'admin' ? 'approved' : 'pending',
-            phone,
-            address,
             subscription_updated_at: new Date().toISOString(),
           },
         },
@@ -66,24 +46,13 @@ export default function Signup() {
       if (signupError) throw signupError;
 
       if (data.user) {
-        // Upload avatar if provided
-        let avatarUrl = '';
-        if (avatar) {
-          const fileExt = avatar.name.split('.').pop();
-          const fileName = `${data.user.id}-${Date.now()}.${fileExt}`;
-          const filePath = `avatars/${fileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('profile-images')
-            .upload(filePath, avatar);
-
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('profile-images')
-              .getPublicUrl(filePath);
-            avatarUrl = publicUrl;
+        // Update user metadata for redundancy so fallbacks can recover state if profiles table write fails or is delayed
+        await supabase.auth.updateUser({
+          data: {
+            full_name: name,
+            role: finalRole,
           }
-        }
+        });
 
         // Create/Update profile with additional info
         const { error: profileError } = await supabase
@@ -93,30 +62,19 @@ export default function Signup() {
             full_name: name,
             role: finalRole,
             status: finalRole === 'admin' ? 'approved' : 'pending',
-            phone,
-            address,
-            avatar_url: avatarUrl,
             email: email,
-            subscription_plan: 'Starter Plan'
+            subscription_plan: 'Free Plan'
           });
 
         if (profileError) console.error('Error creating/updating profile:', profileError);
 
-        // Send Welcome Email and Notify Admin via Backend
+        // Send Welcome Email to User
         try {
-          // Send Welcome Email to User
           fetch('/api/send-welcome-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, name }),
           }).catch(err => console.error('Error calling welcome email API:', err));
-
-          // Notify Admin
-          fetch('/api/notify-admin-new-user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name, role: finalRole }),
-          }).catch(err => console.error('Error calling admin notification API:', err));
         } catch (emailErr) {
           console.error('Error triggering email notifications:', emailErr);
         }
@@ -213,35 +171,7 @@ export default function Signup() {
         </div>
 
         <form className="space-y-6" onSubmit={handleSignup}>
-          {/* Profile Image Upload */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative group">
-              <div className="h-24 w-24 bg-gray-100 rounded-3xl overflow-hidden border-2 border-dashed border-gray-300 group-hover:border-blue-600 transition-all">
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="Avatar Preview" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full flex flex-col items-center justify-center text-gray-400">
-                    <Camera className="h-8 w-8 mb-1" />
-                    <span className="text-[10px] font-bold uppercase">Upload</span>
-                  </div>
-                )}
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-              {avatarPreview && (
-                <div className="absolute -bottom-2 -right-2 h-8 w-8 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                  <Camera className="h-4 w-4" />
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-3 font-medium">Profile Image (Required)</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
               <div className="relative">
@@ -267,37 +197,6 @@ export default function Signup() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:outline-none transition-all"
                   placeholder="name@example.com"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:outline-none transition-all"
-                  placeholder="+234 800 000 0000"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Office/Home Address</label>
-              <div className="relative">
-                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  required
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:outline-none transition-all"
-                  placeholder="123 Street Name, City"
                 />
               </div>
             </div>

@@ -18,6 +18,7 @@ const Properties = () => {
   const [type, setType] = useState(searchParams.get('type') || '');
   const [listingStatus, setListingStatus] = useState(searchParams.get('listingStatus') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
+  const [sort, setSort] = useState(searchParams.get('sort') || 'newest');
 
   useEffect(() => {
     fetchProperties();
@@ -37,6 +38,7 @@ const Properties = () => {
       const typeParam = searchParams.get('type');
       const listingStatusParam = searchParams.get('listingStatus');
       const maxPriceParam = searchParams.get('maxPrice');
+      const sortParam = searchParams.get('sort') || 'newest';
 
       if (qParam) {
         query = query.or(`title.ilike.%${qParam}%,description.ilike.%${qParam}%`);
@@ -54,7 +56,18 @@ const Properties = () => {
         query = query.lte('price', parseInt(maxPriceParam));
       }
 
-      const { data: propertiesData, error: propertiesError } = await query.order('created_at', { ascending: false });
+      // Apply sorting
+      if (sortParam === 'newest') {
+        query = query.order('created_at', { ascending: false });
+      } else if (sortParam === 'price-asc') {
+        query = query.order('price', { ascending: true });
+      } else if (sortParam === 'price-desc') {
+        query = query.order('price', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      const { data: propertiesData, error: propertiesError } = await query;
       
       if (propertiesError) throw propertiesError;
 
@@ -93,6 +106,14 @@ const Properties = () => {
     if (type) params.type = type;
     if (listingStatus) params.listingStatus = listingStatus;
     if (maxPrice) params.maxPrice = maxPrice;
+    if (sort) params.sort = sort;
+    setSearchParams(params);
+  };
+
+  const handleSortChange = (newSort: string) => {
+    setSort(newSort);
+    const params = Object.fromEntries(searchParams.entries());
+    params.sort = newSort;
     setSearchParams(params);
   };
 
@@ -102,6 +123,7 @@ const Properties = () => {
     setType('');
     setListingStatus('');
     setMaxPrice('');
+    setSort('newest');
     setSearchParams({});
   };
 
@@ -113,14 +135,30 @@ const Properties = () => {
             <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 md:mb-4">All Properties</h1>
             <p className="text-gray-600 text-sm md:text-base">Browse through our verified listings across Nigeria.</p>
           </div>
-          {(q || location || type || listingStatus || maxPrice) && (
-            <button 
-              onClick={clearFilters}
-              className="flex items-center gap-2 text-xs md:text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
-            >
-              <X className="h-4 w-4" /> Clear All Filters
-            </button>
-          )}
+          
+          <div className="flex flex-wrap items-center gap-3 md:gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Sort By:</span>
+              <select 
+                value={sort}
+                onChange={(e) => handleSortChange(e.target.value)}
+                className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-bold text-gray-700 focus:outline-none focus:border-blue-600 transition-all appearance-none cursor-pointer pr-10 relative bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_0.5rem_center] bg-no-repeat"
+              >
+                <option value="newest">Recently Listed</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+              </select>
+            </div>
+
+            {(q || location || type || listingStatus || maxPrice || sort !== 'newest') && (
+              <button 
+                onClick={clearFilters}
+                className="flex items-center gap-2 text-xs md:text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
+              >
+                <X className="h-4 w-4" /> Clear All
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Search & Filter Bar */}

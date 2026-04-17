@@ -149,7 +149,7 @@ export async function createServer() {
         : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app';
 
       const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'signup',
+        type: 'magiclink',
         email: email,
         options: {
           redirectTo: `${appUrl}/email-confirmation`
@@ -206,9 +206,81 @@ export async function createServer() {
     }
   });
 
-  // Admin Notification Endpoint
+  // Admin Notification: Profile Ready for Review
+  app.post('/api/notify-admin-ready', async (req, res) => {
+    const { userId, email, name } = req.body;
+
+    if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
+      console.log(`[Notification Mock] Profile ready for review: ${name} (${email})`);
+      return res.json({ success: true });
+    }
+
+    try {
+      // Fetch the full profile to include in the email
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      await transporter.sendMail({
+        from: smtpConfig.from,
+        to: process.env.SMTP_USER,
+        subject: `Profile Ready for Review: ${name} - Real Estate Solution`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2563eb; text-align: center;">Profile Ready for Review</h2>
+            <p style="text-align: center; color: #666;">User <strong>${name}</strong> has completed their profile and is requesting approval.</p>
+            
+            <div style="text-align: center; margin: 20px 0;">
+              ${profile?.avatar_url ? 
+                `<img src="${profile.avatar_url}" alt="${name}" style="width: 120px; height: 120px; border-radius: 60px; object-cover: cover; border: 4px solid #f0f4ff;">` : 
+                `<div style="width: 120px; height: 120px; border-radius: 60px; background: #f0f4ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; margin: 0 auto;">${name.charAt(0)}</div>`
+              }
+            </div>
+
+            <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px; width: 100px;"><strong>Name:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px;"><strong>Email:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${email}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px;"><strong>Phone:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${profile?.phone || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px;"><strong>Role:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-transform: uppercase; font-weight: bold;">${profile?.role || 'N/A'}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${(process.env.APP_URL && !process.env.APP_URL.includes('localhost') ? process.env.APP_URL : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app')}/admin" 
+                 style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                Review in Admin Dashboard
+              </a>
+            </div>
+          </div>
+        `,
+      });
+
+      console.log(`Review notification sent for ${name}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error sending review notification:', error);
+      res.status(500).json({ error: 'Failed to notify admin' });
+    }
+  });
+
+  // Admin Notification Endpoint (Deprecated for Signup, but kept for legacy/other uses if any)
   app.post('/api/notify-admin-new-user', async (req, res) => {
-    const { email, name, role } = req.body;
+    const { email, name, role, phone, address, avatarUrl } = req.body;
 
     if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
       return res.json({ success: true });
@@ -218,17 +290,50 @@ export async function createServer() {
       await transporter.sendMail({
         from: smtpConfig.from,
         to: process.env.SMTP_USER, // Send to the admin email
-        subject: 'New User Registration - Real Estate Solution',
+        subject: `New ${role.toUpperCase()} Registration - Real Estate Solution`,
         html: `
-          <div style="font-family: sans-serif; padding: 20px;">
-            <h2>New User Registration</h2>
-            <p>A new user has registered and is awaiting approval:</p>
-            <ul>
-              <li><strong>Name:</strong> ${name}</li>
-              <li><strong>Email:</strong> ${email}</li>
-              <li><strong>Role:</strong> ${role}</li>
-            </ul>
-            <p><a href="${(process.env.APP_URL && !process.env.APP_URL.includes('localhost') ? process.env.APP_URL : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app')}/admin">Go to Admin Dashboard</a></p>
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2563eb; text-align: center;">New User Registration</h2>
+            <p style="text-align: center; color: #666;">A new user has registered and is awaiting your approval.</p>
+            
+            <div style="text-align: center; margin: 20px 0;">
+              ${avatarUrl ? 
+                `<img src="${avatarUrl}" alt="${name}" style="width: 120px; height: 120px; border-radius: 60px; object-cover: cover; border: 4px solid #f0f4ff;">` : 
+                `<div style="width: 120px; height: 120px; border-radius: 60px; background: #f0f4ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; margin: 0 auto;">${name.charAt(0)}</div>`
+              }
+            </div>
+
+            <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px; width: 100px;"><strong>Name:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px;"><strong>Email:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${email}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px;"><strong>Phone:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${phone || 'Not provided'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px;"><strong>Address:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${address || 'Not provided'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-size: 13px;"><strong>Role:</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-transform: uppercase; font-weight: bold;">${role}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${(process.env.APP_URL && !process.env.APP_URL.includes('localhost') ? process.env.APP_URL : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app')}/admin" 
+                 style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                Review in Admin Dashboard
+              </a>
+            </div>
           </div>
         `,
       });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Shield, CreditCard, Edit2, Check, X, LogOut, Phone, MapPin, Camera, Briefcase, Globe, FileText, Loader2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { User, Mail, Shield, CreditCard, Edit2, Check, X, LogOut, Phone, MapPin, Camera, Briefcase, Globe, FileText, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import axios from 'axios';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
@@ -16,28 +17,36 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newBio, setNewBio] = useState('');
   const [newCompany, setNewCompany] = useState('');
-  const [newWebsite, setNewWebsite] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [isEditingCompany, setIsEditingCompany] = useState(false);
-  const [isEditingWebsite, setIsEditingWebsite] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   useEffect(() => {
     fetchProfile();
+    checkCurrentUser();
   }, [userId]);
+
+  const checkCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  };
 
   const fetchProfile = async () => {
     setIsLoading(true);
@@ -51,12 +60,10 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
       if (error) throw error;
       setUser(data);
       setNewName(data.full_name);
-      setNewEmail(data.email || '');
       setNewPhone(data.phone || '');
       setNewAddress(data.address || '');
       setNewBio(data.bio || '');
       setNewCompany(data.company || '');
-      setNewWebsite(data.website || '');
 
       // Fetch real plan details if subscription_plan exists
       if (data.subscription_plan) {
@@ -103,60 +110,53 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
     }
   };
 
-  const handleSaveEmail = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail)) {
-      setError('Please enter a valid email address.');
+  const handleSavePassword = () => {
+    const trimmedPassword = newPassword.trim();
+    const trimmedConfirm = confirmPassword.trim();
+
+    if (trimmedPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
       return;
     }
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
-      if (authError) throw authError;
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ email: newEmail })
-        .eq('id', userId);
-      
-      if (profileError) throw profileError;
-
-      setUser({ ...user, email: newEmail });
-      setIsEditingEmail(false);
-      setSuccess('Email update initiated. Please check your new email for verification.');
-      setTimeout(() => setSuccess(null), 5000);
-    } catch (error: any) {
-      console.error('Error updating email:', error);
-      setError(error.message || 'Failed to update email.');
-    } finally {
-      setIsSubmitting(false);
+    if (trimmedPassword !== trimmedConfirm) {
+      setPasswordError('Passwords do not match.');
+      return;
     }
+    
+    setPasswordError(null);
+    setShowPasswordConfirm(true);
   };
 
-  const handleSavePassword = async () => {
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
+  const executePasswordUpdate = async () => {
+    const trimmedPassword = newPassword.trim();
     setIsSubmitting(true);
-    setError(null);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setShowPasswordConfirm(false);
+    
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      // Check if we have a current session
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        throw new Error('You must be logged in to update your password.');
+      }
+
+      console.log('Attempting password update for user:', authUser.id);
+      const { error } = await supabase.auth.updateUser({ password: trimmedPassword });
       if (error) throw error;
 
-      setIsEditingPassword(false);
+      setPasswordSuccess('Password updated successfully!');
       setNewPassword('');
       setConfirmPassword('');
-      setSuccess('Password updated successfully.');
-      setTimeout(() => setSuccess(null), 3000);
+      
+      // Keep it open for a moment to show success, then close
+      setTimeout(() => {
+        setIsEditingPassword(false);
+        setPasswordSuccess(null);
+      }, 2000);
     } catch (error: any) {
       console.error('Error updating password:', error);
-      setError(error.message || 'Failed to update password.');
+      setPasswordError(error.message || 'Failed to update password.');
     } finally {
       setIsSubmitting(false);
     }
@@ -258,28 +258,6 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
     }
   };
 
-  const handleSaveWebsite = async () => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ website: newWebsite })
-        .eq('id', userId);
-      
-      if (error) throw error;
-      setUser({ ...user, website: newWebsite });
-      setIsEditingWebsite(false);
-      setSuccess('Website updated successfully.');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (error: any) {
-      console.error('Error updating website:', error);
-      setError(error.message || 'Failed to update website.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -321,23 +299,68 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
 
   const handleCancel = () => {
     setNewName(user?.full_name || '');
-    setNewEmail(user?.email || '');
     setNewPhone(user?.phone || '');
     setNewAddress(user?.address || '');
     setNewBio(user?.bio || '');
     setNewCompany(user?.company || '');
-    setNewWebsite(user?.website || '');
     setNewPassword('');
     setConfirmPassword('');
     setIsEditing(false);
-    setIsEditingEmail(false);
     setIsEditingPhone(false);
     setIsEditingAddress(false);
     setIsEditingBio(false);
     setIsEditingCompany(false);
-    setIsEditingWebsite(false);
     setIsEditingPassword(false);
     setError(null);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+
+  const isProfileComplete = () => {
+    return !!(user?.full_name && user?.phone && user?.address && user?.avatar_url && user?.bio);
+  };
+
+  const handleSubmitForReview = async () => {
+    if (!isProfileComplete()) {
+      setError('Please complete all required fields (Photo, Phone, and Address) before submitting for review.');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      // Update the profile status to notify admin
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          status: 'review_requested',
+        })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+      
+      // Update local user state
+      setUser((prev: any) => ({ ...prev, status: 'review_requested' }));
+
+      // Update local state to reflect submission
+      setSuccess('Your profile has been submitted for review! An administrator will verify your details soon.');
+      
+      // Optionally notify admin via API
+      try {
+        await axios.post('/api/notify-admin-ready', {
+          userId,
+          name: user.full_name,
+          email: user.email
+        });
+      } catch (err) {
+        console.error('Error triggering review notification:', err);
+      }
+
+      setTimeout(() => setSuccess(null), 10000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit for review. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -482,54 +505,6 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                  <Mail className="h-5 w-5 text-blue-600" />
-                </div>
-                <h3 className="font-bold text-gray-900">Email Address</h3>
-              </div>
-              {!isEditingEmail && (
-                <button
-                  onClick={() => setIsEditingEmail(true)}
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            {isEditingEmail ? (
-              <div className="space-y-3">
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none"
-                  placeholder="Enter new email"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveEmail}
-                    disabled={isSubmitting}
-                    className="flex-1 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Update Email
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                    className="px-4 py-2 bg-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-300 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-600">{user.email || 'No email provided'}</p>
-            )}
-          </div>
-
-          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
                   <Phone className="h-5 w-5 text-blue-600" />
                 </div>
                 <h3 className="font-bold text-gray-900">Phone Number</h3>
@@ -626,61 +601,6 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                  <Shield className="h-5 w-5 text-blue-600" />
-                </div>
-                <h3 className="font-bold text-gray-900">Security</h3>
-              </div>
-              {!isEditingPassword && (
-                <button
-                  onClick={() => setIsEditingPassword(true)}
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            {isEditingPassword ? (
-              <div className="space-y-3">
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none"
-                  placeholder="New password"
-                />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none"
-                  placeholder="Confirm new password"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSavePassword}
-                    disabled={isSubmitting}
-                    className="flex-1 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Update Password
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                    className="px-4 py-2 bg-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-300 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-600">••••••••••••</p>
-            )}
-          </div>
-
-          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
                   <Briefcase className="h-5 w-5 text-blue-600" />
                 </div>
                 <h3 className="font-bold text-gray-900">Company / Agency</h3>
@@ -722,54 +642,6 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
               </div>
             ) : (
               <p className="text-gray-600">{user.company || 'No company provided'}</p>
-            )}
-          </div>
-
-          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                  <Globe className="h-5 w-5 text-blue-600" />
-                </div>
-                <h3 className="font-bold text-gray-900">Website</h3>
-              </div>
-              {!isEditingWebsite && (
-                <button
-                  onClick={() => setIsEditingWebsite(true)}
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            {isEditingWebsite ? (
-              <div className="space-y-3">
-                <input
-                  type="url"
-                  value={newWebsite}
-                  onChange={(e) => setNewWebsite(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none"
-                  placeholder="https://example.com"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveWebsite}
-                    disabled={isSubmitting}
-                    className="flex-1 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Update Website
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                    className="px-4 py-2 bg-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-300 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-600">{user.website || 'No website provided'}</p>
             )}
           </div>
 
@@ -855,7 +727,91 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
           </div>
         </div>
 
-        {/* Danger Zone */}
+        {/* Account Settings */}
+        <div className="mt-12 space-y-8">
+          <div className="p-8 bg-blue-50/30 rounded-[2.5rem] border border-blue-100/50">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600">
+                <Shield className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-gray-900">Account Security</h3>
+                <p className="text-xs text-gray-500 font-medium">Protect your account with a strong password</p>
+              </div>
+              {!isEditingPassword && currentUserId === userId && (
+                <button
+                  onClick={() => {
+                    setIsEditingPassword(true);
+                    setPasswordError(null);
+                    setPasswordSuccess(null);
+                  }}
+                  className="ml-auto px-4 py-2 bg-white text-blue-600 rounded-xl text-xs font-bold border border-blue-100 hover:bg-blue-50 transition-colors"
+                >
+                  Change Password
+                </button>
+              )}
+            </div>
+
+            {isEditingPassword && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4 max-w-md"
+              >
+                {passwordError && (
+                  <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-2">
+                    <X className="h-3 w-3" /> {passwordError}
+                  </div>
+                )}
+                {passwordSuccess && (
+                  <div className="p-3 bg-green-50 text-green-600 rounded-xl text-xs font-bold border border-green-100 flex items-center gap-2">
+                    <Check className="h-3 w-3" /> {passwordSuccess}
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none bg-white"
+                    placeholder="New password"
+                  />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none bg-white"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSavePassword}
+                    disabled={isSubmitting}
+                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      'Update Password'
+                    )}
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    disabled={isSubmitting}
+                    className="px-6 py-3 bg-white text-gray-600 rounded-xl font-bold text-sm border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Danger Zone */}
         <div className="mt-12 pt-8 border-t border-gray-100">
           <h3 className="text-lg font-bold text-red-600 mb-4">Danger Zone</h3>
           <button className="px-6 py-3 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors">
@@ -863,6 +819,200 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
           </button>
         </div>
       </div>
+
+        {/* Action Button for Profile Completion */}
+        {(user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested') && (
+          <div className="mt-8 space-y-6">
+            {/* Progress Checklist */}
+            <div className="p-8 bg-gray-50 rounded-[2.5rem] border border-gray-100">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">
+                    {isProfileComplete() ? 'Profile Complete - Ready for Verification' : 'Verification Checklist'}
+                  </h3>
+                  <p className="text-xs text-gray-500 font-medium">
+                    {isProfileComplete() 
+                      ? 'Congratulations! Your profile is 100% complete and ready for admin verification.' 
+                      : 'Complete these steps to unlock property listings'}
+                  </p>
+                </div>
+                {!isProfileComplete() && (
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-32 bg-gray-200 rounded-full overflow-hidden">
+                      <motion.div 
+                        key={Object.values({
+                          photo: !!user.avatar_url,
+                          name: !!user.full_name,
+                          phone: !!user.phone,
+                          address: !!user.address,
+                          bio: !!user.bio
+                        }).filter(Boolean).length}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(Object.values({
+                          photo: !!user.avatar_url,
+                          name: !!user.full_name,
+                          phone: !!user.phone,
+                          address: !!user.address,
+                          bio: !!user.bio
+                        }).filter(Boolean).length / 5) * 100}%` }}
+                        className="h-full bg-blue-600 rounded-full"
+                      />
+                    </div>
+                    <span className="text-xs font-black text-blue-600">
+                      {Math.round((Object.values({
+                        photo: !!user.avatar_url,
+                        name: !!user.full_name,
+                        phone: !!user.phone,
+                        address: !!user.address,
+                        bio: !!user.bio
+                      }).filter(Boolean).length / 5) * 100)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {isProfileComplete() ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col items-center justify-center py-6 text-center"
+                >
+                  <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <CheckCircle className="h-8 w-8" />
+                  </div>
+                  <h4 className="text-lg font-black text-gray-900">100% Complete!</h4>
+                  <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
+                    Your profile is ready. Click the button below to notify administrators.
+                  </p>
+                </motion.div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Profile Photo', done: !!user.avatar_url, icon: Camera },
+                    { label: 'Full Name', done: !!user.full_name, icon: User },
+                    { label: 'Phone Number', done: !!user.phone, icon: Phone },
+                    { label: 'Physical Address', done: !!user.address, icon: MapPin },
+                    { label: 'Agent Bio', done: !!user.bio, icon: FileText },
+                  ].map((item, i) => (
+                    <div key={i} className={cn(
+                      "flex items-center gap-3 p-4 rounded-2xl border transition-all",
+                      item.done ? "bg-green-50 border-green-100" : "bg-white border-red-50/50 border-red-100"
+                    )}>
+                      <div className={cn(
+                        "h-8 w-8 rounded-lg flex items-center justify-center",
+                        item.done ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
+                      )}>
+                        {item.done ? <item.icon className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                      </div>
+                      <span className={cn(
+                        "text-sm font-black",
+                        item.done ? "text-green-900" : "text-red-600"
+                      )}>
+                        {item.label}
+                      </span>
+                      {item.done && <Check className="h-4 w-4 ml-auto text-green-600" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {user.status === 'review_requested' ? (
+              <div className="p-8 bg-green-50 rounded-[2.5rem] border border-green-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex-1">
+                  <h3 className="text-xl font-black text-green-900 mb-2">Review in Progress</h3>
+                  <p className="text-sm text-green-700 font-medium">
+                    Our administrators are currently verifying your documentation. You will be notified once your account is fully activated.
+                  </p>
+                </div>
+                <div className="px-6 py-3 bg-white text-green-600 rounded-xl font-black flex items-center gap-2 shadow-sm">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                  </span>
+                  Processing
+                </div>
+              </div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-6"
+              >
+                <div className="flex-1">
+                  <h3 className="text-xl font-black text-blue-900 mb-2">Submit Profile for Approval</h3>
+                  <p className="text-sm text-blue-700 font-medium">
+                    Once your checklist is all green, click the button to notify our team for verification and listing activation.
+                  </p>
+                </div>
+                <button
+                  onClick={handleSubmitForReview}
+                  disabled={isSubmitting}
+                  className={cn(
+                    "px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg",
+                    isProfileComplete() 
+                      ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200" 
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                  )}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" /> Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-5 w-5" /> Submit for Review
+                    </>
+                  )}
+                </button>
+              </motion.div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Password Update Confirmation Modal */}
+      <AnimatePresence>
+        {showPasswordConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
+            >
+              {/* Decorative background element */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50"></div>
+              
+              <div className="flex flex-col items-center text-center relative">
+                <div className="h-16 w-16 bg-yellow-100 rounded-2xl flex items-center justify-center text-yellow-600 mb-6">
+                  <AlertTriangle className="h-8 w-8" />
+                </div>
+                
+                <h3 className="text-xl font-black text-gray-900 mb-2">Update Password?</h3>
+                <p className="text-gray-500 font-medium text-sm leading-relaxed mb-8">
+                  Are you sure you want to change your password? You will need to use your new password for all future logins.
+                </p>
+                
+                <div className="flex flex-col w-full gap-3">
+                  <button
+                    onClick={executePasswordUpdate}
+                    className="w-full py-4 bg-blue-600 text-white rounded-xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                  >
+                    Confirm Change
+                  </button>
+                  <button
+                    onClick={() => setShowPasswordConfirm(false)}
+                    className="w-full py-4 bg-gray-50 text-gray-600 rounded-xl font-black text-sm hover:bg-gray-100 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

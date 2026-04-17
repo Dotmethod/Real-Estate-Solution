@@ -18,6 +18,7 @@ interface UserProfile {
   phone?: string;
   address?: string;
   avatar_url?: string;
+  bio?: string;
 }
 
 interface SubscriptionPlan {
@@ -88,6 +89,10 @@ export default function AdminDashboard() {
   const [propertyStatusMessage, setPropertyStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const [isFeaturedOnly, setIsFeaturedOnly] = useState(false);
   const [adminStatusMessage, setAdminStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+
+  // User Details Modal State
+  const [showUserDetailsModal, setShowUserDetailsModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -183,14 +188,33 @@ export default function AdminDashboard() {
     }
   };
 
+  const isProfileComplete = (user: UserProfile) => {
+    return !!(user.full_name && user.phone && user.address && user.avatar_url && user.bio);
+  };
+
   const updateUserStatus = async (id: string, status: string) => {
     try {
       const user = users.find(u => u.id === id);
       const oldStatus = user?.status;
 
+      if (status === 'approved' && user && !isProfileComplete(user)) {
+        setAdminStatusMessage({ 
+          type: 'error', 
+          text: `Cannot approve ${user.full_name} because their profile is incomplete (requires photo, phone, and address).` 
+        });
+        return;
+      }
+
+      const updateData: any = { status };
+      
+      // If approving and user has no plan or is on Starter Plan, assign Free Plan
+      if (status === 'approved' && (!user?.subscription_plan || user?.subscription_plan === 'Starter Plan')) {
+        updateData.subscription_plan = 'Free Plan';
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({ status })
+        .update(updateData)
         .eq('id', id);
       
       if (error) throw error;
@@ -208,7 +232,7 @@ export default function AdminDashboard() {
         }
       }
 
-      setUsers(users.map(u => u.id === id ? { ...u, status } : u));
+      setUsers(users.map(u => u.id === id ? { ...u, ...updateData } : u));
     } catch (error) {
       console.error('Error updating user status:', error);
     }
@@ -232,15 +256,22 @@ export default function AdminDashboard() {
       const user = users.find(u => u.id === id);
       const oldStatus = user?.status;
 
+      const updatedForm = { ...editForm };
+      
+      // If approving and user has no plan or is on Starter Plan, assign Free Plan
+      if (updatedForm.status === 'approved' && (!updatedForm.subscription_plan || updatedForm.subscription_plan === 'Starter Plan')) {
+        updatedForm.subscription_plan = 'Free Plan';
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update(editForm)
+        .update(updatedForm)
         .eq('id', id);
       
       if (error) throw error;
 
       // Send approval email if status changed to approved
-      if (editForm.status === 'approved' && oldStatus !== 'approved' && user?.email) {
+      if (updatedForm.status === 'approved' && oldStatus !== 'approved' && user?.email) {
         try {
           await axios.post('/api/send-approval-email', {
             userId: id,
@@ -252,7 +283,7 @@ export default function AdminDashboard() {
         }
       }
 
-      setUsers(users.map(u => u.id === id ? { ...u, ...editForm } : u));
+      setUsers(users.map(u => u.id === id ? { ...u, ...updatedForm } : u));
       setEditingUserId(null);
       setAdminStatusMessage({ type: 'success', text: 'User profile updated successfully.' });
     } catch (error) {
@@ -823,12 +854,11 @@ export default function AdminDashboard() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 text-sm font-bold text-gray-900">User</th>
-                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Role</th>
-                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Plan</th>
-                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Status</th>
-                    <th className="px-6 py-4 text-sm font-bold text-gray-900">Actions</th>
+                  <tr className="bg-gray-50/50">
+                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">User Details</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Plan</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -843,8 +873,8 @@ export default function AdminDashboard() {
                   ) : users.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+                        <div className="flex items-center gap-4">
+                          <div className="h-14 w-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-bold overflow-hidden border border-blue-100 shadow-sm shrink-0">
                             {user.avatar_url ? (
                               <img 
                                 src={user.avatar_url} 
@@ -856,7 +886,7 @@ export default function AdminDashboard() {
                               (user.full_name || 'U').charAt(0)
                             )}
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             {editingUserId === user.id ? (
                               <div className="space-y-2">
                                 <input
@@ -866,24 +896,54 @@ export default function AdminDashboard() {
                                   className="text-sm font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
                                   placeholder="Full Name"
                                 />
-                                <input
-                                  type="email"
-                                  value={editForm.email}
-                                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                  className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
-                                  placeholder="Email"
-                                />
+                                <div className="flex gap-2">
+                                  <input
+                                    type="email"
+                                    value={editForm.email}
+                                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                    className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 focus:outline-none focus:border-blue-600"
+                                    placeholder="Email"
+                                  />
+                                  <select
+                                    value={editForm.role}
+                                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                                    className="text-xs font-bold bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-blue-600"
+                                  >
+                                    <option value="client">Client</option>
+                                    <option value="agent">Agent</option>
+                                    <option value="owner">Owner</option>
+                                    <option value="admin">Admin</option>
+                                  </select>
+                                </div>
                               </div>
                             ) : (
                               <>
-                                <p className="text-sm font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
-                                <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <p className="text-sm font-black text-gray-900 truncate">{user.full_name || 'Anonymous'}</p>
+                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-black uppercase rounded-md border border-blue-100">
+                                    {user.role}
+                                  </span>
+                                  {(isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested')) && (
+                                    <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-md border border-green-100 flex items-center gap-1">
+                                      <CheckCircle className="h-2 w-2" /> Profile Completed
+                                    </span>
+                                  )}
+                                  {!isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (
+                                    <span className="px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded-md border border-orange-100 flex items-center gap-1">
+                                      <AlertTriangle className="h-2 w-2" /> Incomplete
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 flex items-center gap-1 mb-1.5">
+                                  <Mail className="h-3 w-3" /> {user.email || 'No email'}
+                                </p>
                               </>
                             )}
-                            <div className="flex flex-col gap-0.5 mt-1">
+                            
+                            <div className="flex flex-wrap gap-x-4 gap-y-1">
                               {editingUserId === user.id ? (
-                                <div className="space-y-1 mt-1">
-                                  <div className="flex items-center gap-1">
+                                <>
+                                  <div className="flex items-center gap-1 flex-1 min-w-[120px]">
                                     <Phone className="h-2.5 w-2.5 text-blue-600" />
                                     <input
                                       type="text"
@@ -893,7 +953,7 @@ export default function AdminDashboard() {
                                       placeholder="Phone"
                                     />
                                   </div>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 flex-1 min-w-[120px]">
                                     <MapPin className="h-2.5 w-2.5 text-gray-400" />
                                     <input
                                       type="text"
@@ -903,7 +963,7 @@ export default function AdminDashboard() {
                                       placeholder="Address"
                                     />
                                   </div>
-                                </div>
+                                </>
                               ) : (
                                 <>
                                   {user.phone && (
@@ -921,21 +981,6 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {editingUserId === user.id ? (
-                          <select
-                            value={editForm.role}
-                            onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                            className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
-                          >
-                            <option value="client">Client</option>
-                            <option value="agent">Agent</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        ) : (
-                          <span className="text-xs font-bold uppercase tracking-wider text-gray-600">{user.role}</span>
-                        )}
                       </td>
                       <td className="px-6 py-4">
                         {editingUserId === user.id ? (
@@ -960,6 +1005,7 @@ export default function AdminDashboard() {
                             className="text-xs font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-600"
                           >
                             <option value="pending">Pending</option>
+                            <option value="review_requested">Review Requested</option>
                             <option value="approved">Approved</option>
                             <option value="suspended">Suspended</option>
                           </select>
@@ -968,10 +1014,11 @@ export default function AdminDashboard() {
                             "px-3 py-1 rounded-full text-xs font-bold capitalize",
                             user.status === 'approved' ? "bg-green-100 text-green-700" :
                             user.status === 'pending' ? "bg-yellow-100 text-yellow-700" :
+                            user.status === 'review_requested' ? "bg-blue-100 text-blue-700" :
                             user.status === 'suspended' ? "bg-red-100 text-red-700" :
                             "bg-gray-100 text-gray-700"
                           )}>
-                            {user.status || 'pending'}
+                            {(user.status || 'pending').replace('_', ' ')}
                           </span>
                         )}
                       </td>
@@ -996,12 +1043,27 @@ export default function AdminDashboard() {
                             </>
                           ) : (
                             <>
-                              {user.status === 'pending' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setShowUserDetailsModal(true);
+                                }}
+                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              {(user.status === 'pending' || user.status === 'review_requested') && (
                                 <>
                                   <button
                                     onClick={() => updateUserStatus(user.id, 'approved')}
-                                    className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
-                                    title="Approve"
+                                    className={cn(
+                                      "p-2 rounded-lg transition-colors",
+                                      isProfileComplete(user) || (user.role !== 'agent' && user.role !== 'owner')
+                                        ? "bg-green-50 text-green-600 hover:bg-green-100"
+                                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    )}
+                                    title={isProfileComplete(user) || (user.role !== 'agent' && user.role !== 'owner') ? "Approve" : "Profile Incomplete - Cannot Approve"}
                                   >
                                     <CheckCircle className="h-4 w-4" />
                                   </button>
@@ -1099,7 +1161,22 @@ export default function AdminDashboard() {
                         ) : (
                           <>
                             <p className="font-bold text-gray-900">{user.full_name || 'Anonymous'}</p>
-                            <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                            <p className="text-xs text-gray-500 mb-1">{user.email || 'No email'}</p>
+                            <div className="flex flex-wrap gap-1">
+                              <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black uppercase rounded border border-blue-100">
+                                {user.role}
+                              </span>
+                              {isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested') && (
+                                <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[8px] font-black uppercase rounded border border-green-100 flex items-center gap-0.5">
+                                  <CheckCircle className="h-1.5 w-1.5" /> Ready
+                                </span>
+                              )}
+                              {!isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (
+                                <span className="px-1.5 py-0.5 bg-orange-50 text-orange-600 text-[8px] font-black uppercase rounded border border-orange-100 flex items-center gap-0.5">
+                                  <AlertTriangle className="h-1.5 w-1.5" /> Incomplete
+                                </span>
+                              )}
+                            </div>
                           </>
                         )}
                       </div>
@@ -1208,6 +1285,15 @@ export default function AdminDashboard() {
                       </>
                     ) : (
                       <>
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowUserDetailsModal(true);
+                          }}
+                          className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
+                        >
+                          <Eye className="h-3 w-3" /> View Details
+                        </button>
                         <button
                           onClick={() => handleEditClick(user)}
                           className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
@@ -1664,6 +1750,134 @@ export default function AdminDashboard() {
           </motion.div>
         </div>
       )}
+
+      {/* User Details Modal */}
+      {showUserDetailsModal && selectedUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative"
+          >
+            <button 
+              onClick={() => setShowUserDetailsModal(false)} 
+              className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="h-6 w-6 text-gray-400" />
+            </button>
+
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="shrink-0">
+                <div className="h-48 w-48 bg-blue-50 rounded-[2rem] overflow-hidden border-4 border-white shadow-xl">
+                  {selectedUser.avatar_url ? (
+                    <img 
+                      src={selectedUser.avatar_url} 
+                      alt={selectedUser.full_name} 
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-4xl font-black text-blue-600">
+                      {(selectedUser.full_name || 'U').charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-6 space-y-2">
+                  <span className={cn(
+                    "block w-full text-center py-2 rounded-xl text-xs font-black uppercase tracking-wider",
+                    selectedUser.status === 'approved' ? "bg-green-100 text-green-700" :
+                    selectedUser.status === 'pending' ? "bg-yellow-100 text-yellow-700" :
+                    "bg-red-100 text-red-700"
+                  )}>
+                    {selectedUser.status || 'pending'}
+                  </span>
+                  <span className="block w-full text-center py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-black uppercase tracking-wider">
+                    {selectedUser.role}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-6">
+                <div>
+                  <h2 className="text-3xl font-black text-gray-900 mb-1">{selectedUser.full_name || 'Anonymous'}</h2>
+                  <p className="text-blue-600 font-bold flex items-center gap-2">
+                    <Mail className="h-4 w-4" /> {selectedUser.email || 'No email provided'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Phone Number</p>
+                    <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-blue-600" /> {selectedUser.phone || 'Not provided'}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Office/Home Address</p>
+                    <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-gray-400" /> {selectedUser.address || 'Not provided'}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Subscription Plan</p>
+                    <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-purple-600" /> {selectedUser.subscription_plan || 'Starter Plan'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  {selectedUser.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => {
+                          updateUserStatus(selectedUser.id, 'approved');
+                          setShowUserDetailsModal(false);
+                        }}
+                        className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="h-5 w-5" /> Approve Agent
+                      </button>
+                      <button
+                        onClick={() => {
+                          updateUserStatus(selectedUser.id, 'rejected');
+                          setShowUserDetailsModal(false);
+                        }}
+                        className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="h-5 w-5" /> Reject
+                      </button>
+                    </>
+                  )}
+                  {selectedUser.status === 'approved' && (
+                    <button
+                      onClick={() => {
+                        updateUserStatus(selectedUser.id, 'suspended');
+                        setShowUserDetailsModal(false);
+                      }}
+                      className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+                    >
+                      <XCircle className="h-5 w-5" /> Suspend Account
+                    </button>
+                  )}
+                  {selectedUser.status === 'suspended' && (
+                    <button
+                      onClick={() => {
+                        updateUserStatus(selectedUser.id, 'approved');
+                        setShowUserDetailsModal(false);
+                      }}
+                      className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle className="h-5 w-5" /> Reactivate Account
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Property Edit Modal */}
       {showPropertyModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">

@@ -421,7 +421,9 @@ export default function PropertyDetail() {
                 {/* Decorative background element */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50"></div>
                 
-                <h3 className="text-lg md:text-xl font-black text-gray-900 mb-6 md:mb-8 relative">Listing Agent</h3>
+                <h3 className="text-lg md:text-xl font-black text-gray-900 mb-6 md:mb-8 relative">
+                  {agent?.role === 'owner' ? 'Property Owner' : 'Listing Agent'}
+                </h3>
                 
                 {agent ? (
                   <div className="space-y-6 md:space-y-8 relative">
@@ -460,14 +462,6 @@ export default function PropertyDetail() {
                         </a>
                       </div>
 
-                      <div className="p-3 md:p-4 bg-gray-50 rounded-xl md:rounded-2xl border border-gray-100">
-                        <p className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Email Address</p>
-                        <a href={`mailto:${agent.email}`} className="text-base md:text-lg font-black text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-2 break-all">
-                          <Mail className="h-4 w-4 md:h-5 md:w-5 text-blue-600 shrink-0" />
-                          {agent.email || 'Contact for email'}
-                        </a>
-                      </div>
-                      
                       <div className="p-3 md:p-4 bg-gray-50 rounded-xl md:rounded-2xl border border-gray-100">
                         <p className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Office Address</p>
                         <div className="flex items-start gap-2 text-gray-700 font-bold">
