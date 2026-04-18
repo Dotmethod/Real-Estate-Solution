@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone, AlertTriangle, Mail, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone, AlertTriangle, Mail, ShieldCheck, Search } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
@@ -19,6 +19,7 @@ interface UserProfile {
   address?: string;
   avatar_url?: string;
   bio?: string;
+  company?: string;
 }
 
 interface SubscriptionPlan {
@@ -88,6 +89,7 @@ export default function AdminDashboard() {
   const [customAmenity, setCustomAmenity] = useState('');
   const [propertyStatusMessage, setPropertyStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const [isFeaturedOnly, setIsFeaturedOnly] = useState(false);
+  const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [adminStatusMessage, setAdminStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
   // User Details Modal State
@@ -176,7 +178,10 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('properties')
-        .select('*')
+        .select(`
+          *,
+          agent:profiles(full_name, email)
+        `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -823,20 +828,31 @@ export default function AdminDashboard() {
       {activeTab === 'properties' && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
               <button
                 onClick={() => setIsFeaturedOnly(!isFeaturedOnly)}
                 className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
+                  "px-4 py-2 rounded-xl text-xs font-bold transition-all border shrink-0",
                   isFeaturedOnly ? "bg-yellow-50 border-yellow-200 text-yellow-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 )}
               >
                 {isFeaturedOnly ? "Showing Featured Only" : "Show All Properties"}
               </button>
+              
+              <div className="flex-1 max-w-md w-full relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search agent name or email..."
+                  value={propertySearchTerm}
+                  onChange={(e) => setPropertySearchTerm(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all shadow-sm"
+                />
+              </div>
             </div>
             <button
               onClick={handleCreateProperty}
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-100 shrink-0"
             >
               <Plus className="h-5 w-5" /> List New Property
             </button>
@@ -871,7 +887,16 @@ export default function AdminDashboard() {
                       <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No users found.</td>
                     </tr>
                   ) : users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={user.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button') || target.closest('select') || target.closest('input')) return;
+                        setSelectedUser(user);
+                        setShowUserDetailsModal(true);
+                      }}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
                           <div className="h-14 w-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-bold overflow-hidden border border-blue-100 shadow-sm shrink-0">
@@ -909,9 +934,8 @@ export default function AdminDashboard() {
                                     onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
                                     className="text-xs font-bold bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-blue-600"
                                   >
-                                    <option value="client">Client</option>
-                                    <option value="agent">Agent</option>
                                     <option value="owner">Owner</option>
+                                    <option value="agent">Agent</option>
                                     <option value="admin">Admin</option>
                                   </select>
                                 </div>
@@ -1125,7 +1149,16 @@ export default function AdminDashboard() {
               ) : users.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">No users found.</div>
               ) : users.map((user) => (
-                <div key={user.id} className="p-4 space-y-4">
+                <div 
+                  key={user.id} 
+                  className="p-4 space-y-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.closest('select') || target.closest('input')) return;
+                    setSelectedUser(user);
+                    setShowUserDetailsModal(true);
+                  }}
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 font-bold overflow-hidden shrink-0">
@@ -1226,7 +1259,7 @@ export default function AdminDashboard() {
                           onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
                           className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1"
                         >
-                          <option value="client">Client</option>
+                          <option value="owner">Owner</option>
                           <option value="agent">Agent</option>
                           <option value="admin">Admin</option>
                         </select>
@@ -1348,6 +1381,13 @@ export default function AdminDashboard() {
           >
             {properties
               .filter(p => !isFeaturedOnly || p.is_featured)
+              .filter(p => {
+                if (!propertySearchTerm) return true;
+                const search = propertySearchTerm.toLowerCase();
+                const agentName = p.agent?.full_name?.toLowerCase() || '';
+                const agentEmail = p.agent?.email?.toLowerCase() || '';
+                return agentName.includes(search) || agentEmail.includes(search);
+              })
               .map((property) => (
               <div key={property.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm flex flex-col">
                 <div className="relative h-48">
@@ -1370,6 +1410,17 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="p-6 flex-1 flex flex-col">
+                  {property.agent && (
+                    <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
+                      <div className="h-6 w-6 bg-blue-100 rounded-lg flex items-center justify-center text-[10px] font-black text-blue-600 shrink-0">
+                        {(property.agent.full_name || 'A').charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-gray-900 truncate uppercase tracking-wider">{property.agent.full_name}</p>
+                        <p className="text-[9px] text-gray-500 truncate leading-none">{property.agent.email}</p>
+                      </div>
+                    </div>
+                  )}
                   <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{property.title}</h3>
                   <p className="text-blue-600 font-bold mb-2">{formatPrice(property.price)}</p>
                   <p className="text-xs text-gray-500 mb-4 flex items-center gap-1">
@@ -1824,6 +1875,22 @@ export default function AdminDashboard() {
                       <CreditCard className="h-4 w-4 text-purple-600" /> {selectedUser.subscription_plan || 'Starter Plan'}
                     </p>
                   </div>
+                  {selectedUser.company && (
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Company/Agency</p>
+                      <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-orange-600" /> {selectedUser.company}
+                      </p>
+                    </div>
+                  )}
+                  {selectedUser.bio && (
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Bio</p>
+                      <p className="text-sm text-gray-600 leading-relaxed italic">
+                        "{selectedUser.bio}"
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4">

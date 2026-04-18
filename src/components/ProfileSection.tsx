@@ -35,6 +35,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -265,7 +266,16 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
     setIsSubmitting(true);
     setError(null);
     try {
-      const fileExt = file.name.split('.').pop();
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please upload an image file (JPG, PNG, etc).');
+      }
+
+      // Limit file size to 5MB for profile pictures
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Image size must be less than 5MB.');
+      }
+
+      const fileExt = file.name.split('.').pop() || 'jpg';
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
@@ -418,7 +428,12 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
         {/* Profile Picture & Name Section */}
         <div className="relative -mt-12 mb-8 flex flex-col items-center sm:items-start sm:flex-row sm:gap-6">
           <div className="h-24 w-24 bg-white rounded-3xl p-1 shadow-lg relative group">
-            <div className="h-full w-full bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 text-3xl font-black overflow-hidden">
+            <div className="h-full w-full bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 text-3xl font-black overflow-hidden relative">
+              {isSubmitting && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                  <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                </div>
+              )}
               {user.avatar_url ? (
                 <img 
                   src={user.avatar_url} 
@@ -430,10 +445,23 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
                 (user.full_name || 'U').charAt(0)
               )}
             </div>
-            <label className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition-colors border-2 border-white">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSubmitting}
+              className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition-colors border-2 border-white disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Upload profile picture"
+            >
               <Camera className="h-4 w-4 text-white" />
-              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isSubmitting} />
-            </label>
+            </button>
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleAvatarUpload} 
+              disabled={isSubmitting} 
+            />
           </div>
           
           <div className="mt-4 sm:mt-14 text-center sm:text-left flex-1">
@@ -498,6 +526,156 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
             </button>
           </div>
         </div>
+
+        {/* Action Button for Profile Completion */}
+        {(user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested') && (
+          <div className="mt-8 space-y-6">
+            {/* Progress Checklist */}
+            <div className="p-8 bg-gray-50 rounded-[2.5rem] border border-gray-100">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">
+                    {isProfileComplete() ? 'Profile Complete - Ready for Verification' : 'Verification Checklist'}
+                  </h3>
+                  <p className="text-xs text-gray-500 font-medium">
+                    {isProfileComplete() 
+                      ? 'Congratulations! Your profile is 100% complete and ready for admin verification.' 
+                      : 'Complete these steps to unlock property listings'}
+                  </p>
+                </div>
+                {!isProfileComplete() && (
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-32 bg-gray-200 rounded-full overflow-hidden">
+                      <motion.div 
+                        key={Object.values({
+                          photo: !!user.avatar_url,
+                          name: !!user.full_name,
+                          phone: !!user.phone,
+                          address: !!user.address,
+                          bio: !!user.bio
+                        }).filter(Boolean).length}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(Object.values({
+                          photo: !!user.avatar_url,
+                          name: !!user.full_name,
+                          phone: !!user.phone,
+                          address: !!user.address,
+                          bio: !!user.bio
+                        }).filter(Boolean).length / 5) * 100}%` }}
+                        className="h-full bg-blue-600 rounded-full"
+                      />
+                    </div>
+                    <span className="text-xs font-black text-blue-600">
+                      {Math.round((Object.values({
+                        photo: !!user.avatar_url,
+                        name: !!user.full_name,
+                        phone: !!user.phone,
+                        address: !!user.address,
+                        bio: !!user.bio
+                      }).filter(Boolean).length / 5) * 100)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {isProfileComplete() ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col items-center justify-center py-6 text-center"
+                >
+                  <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <CheckCircle className="h-8 w-8" />
+                  </div>
+                  <h4 className="text-lg font-black text-gray-900">100% Complete!</h4>
+                  <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
+                    Your profile is ready. Click the button below to notify administrators.
+                  </p>
+                </motion.div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Profile Photo', done: !!user.avatar_url, icon: Camera },
+                    { label: 'Full Name', done: !!user.full_name, icon: User },
+                    { label: 'Phone Number', done: !!user.phone, icon: Phone },
+                    { label: 'Physical Address', done: !!user.address, icon: MapPin },
+                    { label: 'Agent Bio', done: !!user.bio, icon: FileText },
+                  ].map((item, i) => (
+                    <div key={i} className={cn(
+                      "flex items-center gap-3 p-4 rounded-2xl border transition-all",
+                      item.done ? "bg-green-50 border-green-100" : "bg-white border-red-50/50 border-red-100"
+                    )}>
+                      <div className={cn(
+                        "h-8 w-8 rounded-lg flex items-center justify-center",
+                        item.done ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
+                      )}>
+                        {item.done ? <item.icon className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                      </div>
+                      <span className={cn(
+                        "text-sm font-black",
+                        item.done ? "text-green-900" : "text-red-600"
+                      )}>
+                        {item.label}
+                      </span>
+                      {item.done && <Check className="h-4 w-4 ml-auto text-green-600" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {user.status === 'review_requested' ? (
+              <div className="p-8 bg-green-50 rounded-[2.5rem] border border-green-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex-1">
+                  <h3 className="text-xl font-black text-green-900 mb-2">Review in Progress</h3>
+                  <p className="text-sm text-green-700 font-medium">
+                    Our administrators are currently verifying your documentation. You will be notified once your account is fully activated.
+                  </p>
+                </div>
+                <div className="px-6 py-3 bg-white text-green-600 rounded-xl font-black flex items-center gap-2 shadow-sm">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                  </span>
+                  Processing
+                </div>
+              </div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-6"
+              >
+                <div className="flex-1">
+                  <h3 className="text-xl font-black text-blue-900 mb-2">Submit Profile for Approval</h3>
+                  <p className="text-sm text-blue-700 font-medium">
+                    Once your checklist is all green, click the button to notify our team for verification and listing activation.
+                  </p>
+                </div>
+                <button
+                  onClick={handleSubmitForReview}
+                  disabled={isSubmitting}
+                  className={cn(
+                    "px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg",
+                    isProfileComplete() 
+                      ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200" 
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                  )}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" /> Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-5 w-5" /> Submit for Review
+                    </>
+                  )}
+                </button>
+              </motion.div>
+            )}
+          </div>
+        )}
 
         {/* Info Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -812,163 +990,13 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
           </div>
 
           {/* Danger Zone */}
-        <div className="mt-12 pt-8 border-t border-gray-100">
-          <h3 className="text-lg font-bold text-red-600 mb-4">Danger Zone</h3>
-          <button className="px-6 py-3 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors">
-            Deactivate Account
-          </button>
-        </div>
-      </div>
-
-        {/* Action Button for Profile Completion */}
-        {(user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested') && (
-          <div className="mt-8 space-y-6">
-            {/* Progress Checklist */}
-            <div className="p-8 bg-gray-50 rounded-[2.5rem] border border-gray-100">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-xl font-black text-gray-900">
-                    {isProfileComplete() ? 'Profile Complete - Ready for Verification' : 'Verification Checklist'}
-                  </h3>
-                  <p className="text-xs text-gray-500 font-medium">
-                    {isProfileComplete() 
-                      ? 'Congratulations! Your profile is 100% complete and ready for admin verification.' 
-                      : 'Complete these steps to unlock property listings'}
-                  </p>
-                </div>
-                {!isProfileComplete() && (
-                  <div className="flex items-center gap-3">
-                    <div className="h-2 w-32 bg-gray-200 rounded-full overflow-hidden">
-                      <motion.div 
-                        key={Object.values({
-                          photo: !!user.avatar_url,
-                          name: !!user.full_name,
-                          phone: !!user.phone,
-                          address: !!user.address,
-                          bio: !!user.bio
-                        }).filter(Boolean).length}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(Object.values({
-                          photo: !!user.avatar_url,
-                          name: !!user.full_name,
-                          phone: !!user.phone,
-                          address: !!user.address,
-                          bio: !!user.bio
-                        }).filter(Boolean).length / 5) * 100}%` }}
-                        className="h-full bg-blue-600 rounded-full"
-                      />
-                    </div>
-                    <span className="text-xs font-black text-blue-600">
-                      {Math.round((Object.values({
-                        photo: !!user.avatar_url,
-                        name: !!user.full_name,
-                        phone: !!user.phone,
-                        address: !!user.address,
-                        bio: !!user.bio
-                      }).filter(Boolean).length / 5) * 100)}%
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {isProfileComplete() ? (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center justify-center py-6 text-center"
-                >
-                  <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                    <CheckCircle className="h-8 w-8" />
-                  </div>
-                  <h4 className="text-lg font-black text-gray-900">100% Complete!</h4>
-                  <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
-                    Your profile is ready. Click the button below to notify administrators.
-                  </p>
-                </motion.div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { label: 'Profile Photo', done: !!user.avatar_url, icon: Camera },
-                    { label: 'Full Name', done: !!user.full_name, icon: User },
-                    { label: 'Phone Number', done: !!user.phone, icon: Phone },
-                    { label: 'Physical Address', done: !!user.address, icon: MapPin },
-                    { label: 'Agent Bio', done: !!user.bio, icon: FileText },
-                  ].map((item, i) => (
-                    <div key={i} className={cn(
-                      "flex items-center gap-3 p-4 rounded-2xl border transition-all",
-                      item.done ? "bg-green-50 border-green-100" : "bg-white border-red-50/50 border-red-100"
-                    )}>
-                      <div className={cn(
-                        "h-8 w-8 rounded-lg flex items-center justify-center",
-                        item.done ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
-                      )}>
-                        {item.done ? <item.icon className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                      </div>
-                      <span className={cn(
-                        "text-sm font-black",
-                        item.done ? "text-green-900" : "text-red-600"
-                      )}>
-                        {item.label}
-                      </span>
-                      {item.done && <Check className="h-4 w-4 ml-auto text-green-600" />}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {user.status === 'review_requested' ? (
-              <div className="p-8 bg-green-50 rounded-[2.5rem] border border-green-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex-1">
-                  <h3 className="text-xl font-black text-green-900 mb-2">Review in Progress</h3>
-                  <p className="text-sm text-green-700 font-medium">
-                    Our administrators are currently verifying your documentation. You will be notified once your account is fully activated.
-                  </p>
-                </div>
-                <div className="px-6 py-3 bg-white text-green-600 rounded-xl font-black flex items-center gap-2 shadow-sm">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                  </span>
-                  Processing
-                </div>
-              </div>
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-6"
-              >
-                <div className="flex-1">
-                  <h3 className="text-xl font-black text-blue-900 mb-2">Submit Profile for Approval</h3>
-                  <p className="text-sm text-blue-700 font-medium">
-                    Once your checklist is all green, click the button to notify our team for verification and listing activation.
-                  </p>
-                </div>
-                <button
-                  onClick={handleSubmitForReview}
-                  disabled={isSubmitting}
-                  className={cn(
-                    "px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg",
-                    isProfileComplete() 
-                      ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200" 
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
-                  )}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" /> Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-5 w-5" /> Submit for Review
-                    </>
-                  )}
-                </button>
-              </motion.div>
-            )}
+          <div className="mt-12 pt-8 border-t border-gray-100">
+            <h3 className="text-lg font-bold text-red-600 mb-4">Danger Zone</h3>
+            <button className="px-6 py-3 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors">
+              Deactivate Account
+            </button>
           </div>
-        )}
+        </div>
       </div>
       
       {/* Password Update Confirmation Modal */}

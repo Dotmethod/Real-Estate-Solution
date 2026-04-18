@@ -51,6 +51,7 @@ export default function AgentDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
+  const propertyFileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<(File | string)[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [customAmenity, setCustomAmenity] = useState('');
@@ -694,7 +695,7 @@ export default function AgentDashboard() {
             </div>
             <div>
               <h3 className="text-lg font-black mb-1">Account Pending Approval</h3>
-              <p className="text-sm font-medium opacity-80">Your account is currently pending approval from our administrators. You can explore the dashboard, but you won't be able to submit new listings until your account is approved. We'll notify you once it's ready!</p>
+              <p className="text-sm font-medium opacity-80">Your account is currently pending approval from our administrators. You can explore the dashboard, but you won't be able to submit new listings until you complete your profile to unlock all features and listing capabilities before your account will be approved. We'll notify you once it's ready!</p>
             </div>
           </motion.div>
         )}
@@ -717,8 +718,13 @@ export default function AgentDashboard() {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
           <div>
-            <h1 className="text-3xl font-black text-gray-900">Agent Dashboard</h1>
-            <p className="text-gray-600">Welcome back, {profile?.full_name || user?.user_metadata?.full_name || 'Agent'}. Manage your listings and leads.</p>
+            <h1 className="text-3xl font-black text-gray-900">
+              {profile?.role === 'owner' ? 'Owner Dashboard' : 'Agent Dashboard'}
+            </h1>
+            <p className="text-gray-600">
+              Welcome back, {profile?.full_name || user?.user_metadata?.full_name || (profile?.role === 'owner' ? 'Owner' : 'Agent')}. 
+              {profile?.role === 'owner' ? ' Manage your property and inquiries.' : ' Manage your listings and leads.'}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
@@ -832,6 +838,65 @@ export default function AgentDashboard() {
 
         {activeTab === 'overview' && (
           <>
+            {/* Agent Identity Summary */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm mb-8 md:mb-12"
+            >
+              <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
+                <div className="h-24 w-24 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 text-3xl font-black overflow-hidden border border-blue-100 shrink-0">
+                  {profile?.avatar_url ? (
+                    <img 
+                      src={profile.avatar_url} 
+                      alt={profile.full_name} 
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    (profile?.full_name || user?.user_metadata?.full_name || 'A').charAt(0)
+                  )}
+                </div>
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h2 className="text-2xl font-black text-gray-900 flex items-center gap-2">
+                      {profile?.full_name || user?.user_metadata?.full_name || (profile?.role === 'owner' ? 'Owner Profile' : 'Agent Profile')}
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] uppercase font-black rounded-md border border-blue-100">
+                        Verified Identity
+                      </span>
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Phone className="h-4 w-4 text-blue-600" />
+                      <span className={cn("text-sm font-bold", !profile?.phone && "text-orange-500 italic font-medium")}>
+                        {profile?.phone || 'Missing phone number'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                      <span className={cn("text-sm font-bold truncate", !profile?.address && "text-orange-500 italic font-medium")}>
+                        {profile?.address || 'Missing address'}
+                      </span>
+                    </div>
+                  </div>
+                  {!isProfileComplete() && (
+                    <div className="p-3 bg-orange-50 border border-orange-100 rounded-xl flex items-center gap-2 text-orange-700 text-xs font-bold">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      Please complete your profile to unlock all features and listing capabilities.
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={() => setActiveTab('profile')}
+                  className="px-6 py-3 bg-gray-50 text-gray-600 rounded-xl font-bold hover:bg-gray-100 transition-all border border-gray-100 text-sm"
+                >
+                  Edit Information
+                </button>
+              </div>
+            </motion.div>
+
             <div className="space-y-8 md:space-y-12 mb-12">
             {/* Your Stats Widget */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -1010,65 +1075,6 @@ export default function AgentDashboard() {
               </motion.div>
             </div>
           </div>
-
-          {/* Agent Identity Summary */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm mb-8 md:mb-12"
-            >
-              <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
-                <div className="h-24 w-24 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 text-3xl font-black overflow-hidden border border-blue-100 shrink-0">
-                  {profile?.avatar_url ? (
-                    <img 
-                      src={profile.avatar_url} 
-                      alt={profile.full_name} 
-                      className="h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    (profile?.full_name || user?.user_metadata?.full_name || 'A').charAt(0)
-                  )}
-                </div>
-                <div className="flex-1 space-y-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-gray-900 flex items-center gap-2">
-                      {profile?.full_name || user?.user_metadata?.full_name || 'Agent Profile'}
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] uppercase font-black rounded-md border border-blue-100">
-                        Verified Identity
-                      </span>
-                    </h2>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Phone className="h-4 w-4 text-blue-600" />
-                      <span className={cn("text-sm font-bold", !profile?.phone && "text-orange-500 italic font-medium")}>
-                        {profile?.phone || 'Missing phone number'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPin className="h-4 w-4 text-blue-600" />
-                      <span className={cn("text-sm font-bold truncate", !profile?.address && "text-orange-500 italic font-medium")}>
-                        {profile?.address || 'Missing address'}
-                      </span>
-                    </div>
-                  </div>
-                  {!isProfileComplete() && (
-                    <div className="p-3 bg-orange-50 border border-orange-100 rounded-xl flex items-center gap-2 text-orange-700 text-xs font-bold">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
-                      Please complete your profile to unlock all features and listing capabilities.
-                    </div>
-                  )}
-                </div>
-                <button 
-                  onClick={() => setActiveTab('profile')}
-                  className="px-6 py-3 bg-gray-50 text-gray-600 rounded-xl font-bold hover:bg-gray-100 transition-all border border-gray-100 text-sm"
-                >
-                  Edit Information
-                </button>
-              </div>
-            </motion.div>
 
             {/* Subscription Limits */}
             {planDetails && (
@@ -1689,16 +1695,38 @@ export default function AgentDashboard() {
                         </button>
                       </div>
                     ))}
-                    <label className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all">
+                    <label 
+                      onClick={() => propertyFileInputRef.current?.click()}
+                      className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all"
+                    >
                       <Plus className="h-6 w-6 text-gray-400" />
-                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
+                      <input 
+                        ref={propertyFileInputRef}
+                        type="file" 
+                        multiple 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleFileChange} 
+                        onClick={(e) => e.stopPropagation()}
+                      />
                     </label>
                   </div>
                 )}
 
                 {previews.length === 0 && (
-                  <label className="block bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] p-12 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all group">
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
+                  <label 
+                    onClick={() => propertyFileInputRef.current?.click()}
+                    className="block bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] p-12 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all group"
+                  >
+                    <input 
+                      ref={propertyFileInputRef}
+                      type="file" 
+                      multiple 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleFileChange} 
+                      onClick={(e) => e.stopPropagation()}
+                    />
                     <div className="flex flex-col items-center">
                       <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
                         <ImageIcon className="h-8 w-8 text-blue-600" />

@@ -14,6 +14,7 @@ import EmailConfirmation from './pages/EmailConfirmation';
 import PropertyDetail from './pages/PropertyDetail';
 import Properties from './pages/Properties';
 import ErrorBoundary from './components/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
 import { supabase } from './lib/supabase';
 import PropertyCard from './components/PropertyCard';
 
@@ -37,8 +38,18 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/email-confirmation" element={<EmailConfirmation />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/dashboard" element={<AgentDashboard />} />
+          
+          <Route path="/admin" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/dashboard" element={
+            <ProtectedRoute allowedRoles={['agent', 'owner']}>
+              <AgentDashboard />
+            </ProtectedRoute>
+          } />
         </Routes>
         
         <footer className="bg-gray-900 text-white py-20 mt-20">
