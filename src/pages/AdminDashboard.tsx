@@ -249,6 +249,9 @@ export default function AdminDashboard() {
   };
 
   const handleEditClick = (user: UserProfile) => {
+    // Get free plan name from current plans list as fallback
+    const freePlanName = plans.find(p => p.price === 0)?.name || 'Free Plan';
+    
     setEditingUserId(user.id);
     setEditForm({ 
       full_name: user.full_name,
@@ -256,7 +259,7 @@ export default function AdminDashboard() {
       phone: user.phone || '',
       address: user.address || '',
       role: user.role, 
-      subscription_plan: user.subscription_plan || 'Starter Plan',
+      subscription_plan: user.subscription_plan || freePlanName,
       status: user.status || 'pending'
     });
   };

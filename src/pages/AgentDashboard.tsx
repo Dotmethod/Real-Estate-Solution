@@ -133,7 +133,33 @@ export default function AgentDashboard() {
             .select('*')
             .ilike('name', profileData.subscription_plan)
             .single();
-          setPlanDetails(planData);
+          
+          if (planData) {
+            setPlanDetails(planData);
+          } else {
+            // Fallback: If plan name changed or not found, find the default free plan (price 0)
+            const { data: defaultPlan } = await supabase
+              .from('subscription_plans')
+              .select('*')
+              .eq('price', 0)
+              .limit(1)
+              .single();
+            if (defaultPlan) setPlanDetails(defaultPlan);
+          }
+        } else if (profileData?.status === 'approved') {
+          // If approved but no plan assigned, find and assign the free plan
+          const { data: freePlan } = await supabase
+            .from('subscription_plans')
+            .select('*')
+            .eq('price', 0)
+            .limit(1)
+            .single();
+            
+          if (freePlan) {
+            setPlanDetails(freePlan);
+            // Opportunistically update profile if missing plan
+            await supabase.from('profiles').update({ subscription_plan: freePlan.name }).eq('id', profileData.id);
+          }
         }
       } else {
         navigate('/login');
@@ -194,7 +220,33 @@ export default function AgentDashboard() {
             .select('*')
             .ilike('name', profileData.subscription_plan)
             .single();
-          setPlanDetails(planData);
+          
+          if (planData) {
+            setPlanDetails(planData);
+          } else {
+            // Fallback: If plan name changed or not found, find the default free plan (price 0)
+            const { data: defaultPlan } = await supabase
+              .from('subscription_plans')
+              .select('*')
+              .eq('price', 0)
+              .limit(1)
+              .single();
+            if (defaultPlan) setPlanDetails(defaultPlan);
+          }
+        } else if (profileData?.status === 'approved') {
+          // If approved but no plan assigned, find and assign the free plan
+          const { data: freePlan } = await supabase
+            .from('subscription_plans')
+            .select('*')
+            .eq('price', 0)
+            .limit(1)
+            .single();
+            
+          if (freePlan) {
+            setPlanDetails(freePlan);
+            // Opportunistically update profile if missing plan
+            await supabase.from('profiles').update({ subscription_plan: freePlan.name }).eq('id', profileData.id);
+          }
         }
       } else {
         setUser(null);
