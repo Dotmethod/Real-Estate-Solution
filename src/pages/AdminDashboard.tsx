@@ -212,9 +212,14 @@ export default function AdminDashboard() {
 
       const updateData: any = { status };
       
-      // If approving and user has no plan or is on Starter Plan, assign Free Plan
+      // If approving and user has no plan or is on Starter Plan, assign the default Free Plan from DB if available
       if (status === 'approved' && (!user?.subscription_plan || user?.subscription_plan === 'Starter Plan')) {
-        updateData.subscription_plan = 'Free Plan';
+        const freePlan = plans.find(p => p.price === 0);
+        if (freePlan) {
+          updateData.subscription_plan = freePlan.name;
+        } else {
+          updateData.subscription_plan = 'Free Plan';
+        }
       }
 
       const { error } = await supabase
@@ -263,9 +268,14 @@ export default function AdminDashboard() {
 
       const updatedForm = { ...editForm };
       
-      // If approving and user has no plan or is on Starter Plan, assign Free Plan
+      // If approving and user has no plan or is on Starter Plan, assign default Free Plan from DB if available
       if (updatedForm.status === 'approved' && (!updatedForm.subscription_plan || updatedForm.subscription_plan === 'Starter Plan')) {
-        updatedForm.subscription_plan = 'Free Plan';
+        const freePlan = plans.find(p => p.price === 0);
+        if (freePlan) {
+          updatedForm.subscription_plan = freePlan.name;
+        } else {
+          updatedForm.subscription_plan = 'Free Plan';
+        }
       }
 
       const { error } = await supabase
@@ -1509,7 +1519,15 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {plans.map((plan) => (
-                <div key={plan.id} className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm flex flex-col">
+                <div key={plan.id} className={cn(
+                  "bg-white rounded-3xl border p-8 shadow-sm flex flex-col relative overflow-hidden",
+                  plan.price === 0 ? "border-green-200 bg-green-50/10" : "border-gray-100"
+                )}>
+                  {plan.price === 0 && (
+                    <div className="absolute top-0 right-0 bg-green-600 text-white px-4 py-1 rounded-bl-xl text-[10px] font-black uppercase tracking-wider">
+                      Default Plan
+                    </div>
+                  )}
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>

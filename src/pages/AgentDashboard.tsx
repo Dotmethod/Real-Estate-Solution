@@ -86,6 +86,17 @@ export default function AgentDashboard() {
         // If profile doesn't exist, create it from user metadata
         if (profileError && profileError.code === 'PGRST116') {
           console.log('Profile not found, creating from metadata...');
+          
+          // Get default free plan name
+          let freePlanName = 'Free Plan';
+          const { data: freePlan } = await supabase
+            .from('subscription_plans')
+            .select('name')
+            .eq('price', 0)
+            .limit(1)
+            .single();
+          if (freePlan) freePlanName = freePlan.name;
+
           const { data: newProfile, error: createError } = await supabase
             .from('profiles')
             .upsert({
@@ -97,7 +108,7 @@ export default function AgentDashboard() {
               phone: session.user.user_metadata?.phone || '',
               address: session.user.user_metadata?.address || '',
               avatar_url: session.user.user_metadata?.avatar_url || '',
-              subscription_plan: 'Free Plan'
+              subscription_plan: freePlanName
             })
             .select()
             .single();
@@ -143,6 +154,16 @@ export default function AgentDashboard() {
         
         // If profile doesn't exist, create it from user metadata
         if (profileError && profileError.code === 'PGRST116') {
+          // Get default free plan name
+          let freePlanName = 'Free Plan';
+          const { data: freePlan } = await supabase
+            .from('subscription_plans')
+            .select('name')
+            .eq('price', 0)
+            .limit(1)
+            .single();
+          if (freePlan) freePlanName = freePlan.name;
+
           const { data: newProfile } = await supabase
             .from('profiles')
             .upsert({
@@ -154,7 +175,7 @@ export default function AgentDashboard() {
               phone: session.user.user_metadata?.phone || '',
               address: session.user.user_metadata?.address || '',
               avatar_url: session.user.user_metadata?.avatar_url || '',
-              subscription_plan: 'Free Plan'
+              subscription_plan: freePlanName
             })
             .select()
             .single();

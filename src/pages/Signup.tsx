@@ -14,6 +14,27 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [defaultPlanName, setDefaultPlanName] = useState('Free Plan');
+
+  React.useEffect(() => {
+    const fetchDefaultPlan = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .select('name')
+          .eq('price', 0)
+          .limit(1)
+          .single();
+        
+        if (data && !error) {
+          setDefaultPlanName(data.name);
+        }
+      } catch (err) {
+        console.error('Error fetching default plan:', err);
+      }
+    };
+    fetchDefaultPlan();
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +84,7 @@ export default function Signup() {
             role: finalRole,
             status: finalRole === 'admin' ? 'approved' : 'pending',
             email: email,
-            subscription_plan: 'Free Plan'
+            subscription_plan: defaultPlanName
           });
 
         if (profileError) console.error('Error creating/updating profile:', profileError);
