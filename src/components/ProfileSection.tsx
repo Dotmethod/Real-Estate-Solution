@@ -263,8 +263,21 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset input immediately so user can try again if it fails
+    const inputElement = e.target;
+    
     setIsSubmitting(true);
     setError(null);
+    setSuccess(null);
+
+    const timeoutId = setTimeout(() => {
+      if (isSubmitting) {
+        setIsSubmitting(false);
+        setError('Upload timed out. Your connection might be slow. Please try again with a smaller image.');
+        inputElement.value = '';
+      }
+    }, 45000); // 45 second timeout for slow mobile uploads
+
     try {
       if (!file.type.startsWith('image/')) {
         throw new Error('Please upload an image file (JPG, PNG, etc).');
@@ -272,47 +285,57 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
 
       // Limit file size to 1MB for profile pictures
       if (file.size > 1 * 1024 * 1024) {
-        throw new Error('Image size must be less than 1MB.');
+        throw new Error('Image size must be less than 1MB. This helps ensure fast loading for your profile.');
       }
 
       const fileExt = file.name.split('.').pop() || 'jpg';
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const fileName = `${userId || 'anon'}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
+      console.log('Starting avatar upload to Supabase...');
+      
       const { error: uploadError } = await supabase.storage
         .from('profile-images')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        throw new Error(uploadError.message || 'Failed to upload image to storage.');
+      }
 
+      console.log('Upload successful, fetching public URL...');
+      
       const { data: { publicUrl } } = supabase.storage
         .from('profile-images')
         .getPublicUrl(filePath);
+
+      console.log('Updating profile with new avatar URL:', publicUrl);
 
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
         .eq('id', userId);
       
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw new Error(profileError.message || 'Failed to update profile record.');
+      }
 
-      setUser({ ...user, avatar_url: publicUrl });
+      setUser((prev: any) => prev ? { ...prev, avatar_url: publicUrl } : { avatar_url: publicUrl });
       setSuccess('Profile image updated successfully.');
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 5000);
       
-      // Reset file input so the same file can be selected again
-      if (e.target) {
-        e.target.value = '';
-      }
+      // Clear input
+      inputElement.value = '';
     } catch (error: any) {
-      console.error('Error uploading avatar:', error);
-      setError(error.message || 'Failed to upload profile image.');
-      
-      // Reset file input even on error
-      if (e.target) {
-        e.target.value = '';
-      }
+      console.error('Error in handleAvatarUpload:', error);
+      setError(error.message || 'An unexpected error occurred during upload. Please try again.');
+      inputElement.value = '';
     } finally {
+      clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   };
@@ -472,7 +495,6 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
               ref={fileInputRef}
               type="file" 
               accept="image/*" 
-              capture={false}
               className="hidden" 
               onChange={handleAvatarUpload} 
               disabled={isSubmitting} 
