@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
@@ -19,6 +19,48 @@ import { supabase } from './lib/supabase';
 import PropertyCard from './components/PropertyCard';
 
 export default function App() {
+  useEffect(() => {
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        // Clear everything when explicitly signed out
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+    });
+
+    // Proactive check for "Refresh Token Not Found" errors
+    const checkSessionIntegrity = async () => {
+      try {
+        const { error } = await supabase.auth.getSession();
+        if (error && (
+          error.message.includes('Refresh Token Not Found') || 
+          error.message.includes('invalid_grant') ||
+          error.message.includes('database error') ||
+          (error as any).status === 400 ||
+          (error as any).status === 401
+        )) {
+          console.warn('Session integrity compromised, resetting...', error.message);
+          await supabase.auth.signOut().catch(() => {});
+          localStorage.clear();
+          sessionStorage.clear();
+          
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login?reset=true';
+          }
+        }
+      } catch (err) {
+        // Silent fail for integrity check
+      }
+    };
+
+    checkSessionIntegrity();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <Router>
       <ScrollToTop />

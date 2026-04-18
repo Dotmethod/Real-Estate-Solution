@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
+import { getSafeSession } from '../lib/auth';
 import { UserRole } from '../types';
 
 interface ProtectedRouteProps {
@@ -18,7 +19,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { session, error: sessionError } = await getSafeSession();
+        
+        if (sessionError) {
+          throw sessionError;
+        }
         
         if (!session) {
           setIsAuthenticated(false);

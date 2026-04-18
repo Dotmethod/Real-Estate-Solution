@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Building2, Info } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import { getSafeSession } from '../lib/auth';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -30,19 +31,28 @@ export default function Login() {
       // If we are resetting, don't check session yet
       if (searchParams.get('reset') === 'true') return;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+      try {
+        const { session, error: sessionError } = await getSafeSession();
         
-        if (profile?.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
+        if (sessionError) {
+          console.error('Session retrieval error:', sessionError);
         }
+
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile?.role === 'admin') {
+            navigate('/admin');
+          } else {
+            navigate('/dashboard');
+          }
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
       }
     };
 

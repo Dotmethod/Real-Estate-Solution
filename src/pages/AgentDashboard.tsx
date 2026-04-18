@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import ProfileSection from '../components/ProfileSection';
 import { supabase } from '../lib/supabase';
+import { getSafeSession } from '../lib/auth';
 import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
 
 interface Property {
@@ -74,7 +75,11 @@ export default function AgentDashboard() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, error } = await getSafeSession();
+      if (error || !session) {
+        navigate('/login');
+        return;
+      }
       if (session?.user) {
         setUser(session.user);
         let { data: profileData, error: profileError } = await supabase

@@ -133,6 +133,36 @@ export default function PropertyDetail() {
     fetchProperty();
   }, [id]);
 
+  const [showShareToast, setShowShareToast] = React.useState(false);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: property.title,
+      text: property.description?.substring(0, 100) + '...',
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        setShowShareToast(true);
+        setTimeout(() => setShowShareToast(false), 3000);
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+      // Fallback to clipboard if share was cancelled or failed
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        setShowShareToast(true);
+        setTimeout(() => setShowShareToast(false), 3000);
+      } catch (copyErr) {
+        console.error('Clipboard error:', copyErr);
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="pt-32 pb-20 px-4 max-w-7xl mx-auto min-h-screen flex items-center justify-center">
@@ -167,8 +197,24 @@ export default function PropertyDetail() {
             Back to Listings
           </Link>
           <div className="flex items-center gap-3">
-            <button className="p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors">
-              <Share2 className="h-5 w-5 text-gray-600" />
+            <button 
+              onClick={handleShare}
+              className="p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors group relative"
+              title="Share Property"
+            >
+              <Share2 className="h-5 w-5 text-gray-600 group-hover:text-blue-600 transition-colors" />
+              <AnimatePresence>
+                {showShareToast && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, x: '-50%' }}
+                    animate={{ opacity: 1, y: 0, x: '-50%' }}
+                    exit={{ opacity: 0, y: 10, x: '-50%' }}
+                    className="absolute bottom-full mb-3 left-1/2 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg whitespace-nowrap shadow-xl z-50 pointer-events-none"
+                  >
+                    Link Copied!
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </button>
             <button className="p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors">
               <Heart className="h-5 w-5 text-gray-600" />

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Property } from '../types';
-import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck } from 'lucide-react';
+import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, Share2 } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -23,6 +23,39 @@ export default function PropertyCard({ property }: PropertyCardProps) {
     e.preventDefault();
     e.stopPropagation();
     setCurrentImageIndex(index);
+  };
+
+  const [showShareToast, setShowShareToast] = useState(false);
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const url = `${window.location.origin}/properties/${property.id}`;
+    const shareData = {
+      title: property.title,
+      text: property.description?.substring(0, 100) + '...',
+      url: url,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShowShareToast(true);
+        setTimeout(() => setShowShareToast(false), 2000);
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+      try {
+        await navigator.clipboard.writeText(url);
+        setShowShareToast(true);
+        setTimeout(() => setShowShareToast(false), 2000);
+      } catch (copyErr) {
+        console.error('Clipboard error:', copyErr);
+      }
+    }
   };
 
   return (
@@ -62,19 +95,38 @@ export default function PropertyCard({ property }: PropertyCardProps) {
               </span>
             )}
           </div>
-          {property.listing_status && (
-            <div className="absolute top-4 right-4 pointer-events-none">
-              <span className={cn(
-                "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg",
-                property.listing_status === 'sale' ? "bg-green-600 text-white" :
-                property.listing_status === 'rent' ? "bg-orange-500 text-white" :
-                property.listing_status === 'lease' ? "bg-purple-600 text-white" :
-                "bg-gray-900 text-white"
-              )}>
-                For {property.listing_status}
-              </span>
-            </div>
-          )}
+            {property.listing_status && (
+              <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+                <span className={cn(
+                  "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg",
+                  property.listing_status === 'sale' ? "bg-green-600 text-white" :
+                  property.listing_status === 'rent' ? "bg-orange-500 text-white" :
+                  property.listing_status === 'lease' ? "bg-purple-600 text-white" :
+                  "bg-gray-900 text-white"
+                )}>
+                  For {property.listing_status}
+                </span>
+                <button
+                  onClick={handleShare}
+                  className="p-2 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 hover:bg-white transition-all group relative"
+                  title="Share Property"
+                >
+                  <Share2 className="h-4 w-4 text-gray-700 group-hover:text-blue-600 transition-colors" />
+                  <AnimatePresence>
+                    {showShareToast && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xl z-50 pointer-events-none"
+                      >
+                        Copied!
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </button>
+              </div>
+            )}
 
           {/* Thumbnails Overlay */}
           {images.length > 1 && (

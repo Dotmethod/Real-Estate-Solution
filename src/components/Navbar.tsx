@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Menu, X, Home, Building2, User as UserIcon, LogOut, LayoutDashboard } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
+import { getSafeSession } from '../lib/auth';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,7 +23,7 @@ export default function Navbar() {
     };
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    getSafeSession().then(({ session }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);

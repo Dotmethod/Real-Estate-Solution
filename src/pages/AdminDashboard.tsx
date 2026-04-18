@@ -5,6 +5,7 @@ import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
 import { supabase } from '../lib/supabase';
+import { getSafeSession } from '../lib/auth';
 import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
 import axios from 'axios';
 
@@ -20,6 +21,7 @@ interface UserProfile {
   avatar_url?: string;
   bio?: string;
   company?: string;
+  created_at?: string;
 }
 
 interface SubscriptionPlan {
@@ -117,8 +119,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const { session, error } = await getSafeSession();
+      if (error || !session) {
         navigate('/login');
         return;
       }
@@ -884,7 +886,8 @@ export default function AdminDashboard() {
               <table className="w-full text-left">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr className="bg-gray-50/50">
-                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">User Details</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Plan</th>
                     <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Actions</th>
@@ -902,7 +905,7 @@ export default function AdminDashboard() {
                   ) : users.map((user) => (
                     <tr 
                       key={user.id} 
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      className="hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600"
                       onClick={(e) => {
                         const target = e.target as HTMLElement;
                         if (target.closest('button') || target.closest('select') || target.closest('input')) return;
@@ -934,35 +937,21 @@ export default function AdminDashboard() {
                                   className="text-sm font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
                                   placeholder="Full Name"
                                 />
-                                <div className="flex gap-2">
-                                  <input
-                                    type="email"
-                                    value={editForm.email}
-                                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                    className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 focus:outline-none focus:border-blue-600"
-                                    placeholder="Email"
-                                  />
-                                  <select
-                                    value={editForm.role}
-                                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                                    className="text-xs font-bold bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-blue-600"
-                                  >
-                                    <option value="owner">Owner</option>
-                                    <option value="agent">Agent</option>
-                                    <option value="admin">Admin</option>
-                                  </select>
-                                </div>
+                                <input
+                                  type="email"
+                                  value={editForm.email}
+                                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                  className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
+                                  placeholder="Email"
+                                />
                               </div>
                             ) : (
                               <>
                                 <div className="flex items-center gap-2 mb-0.5">
                                   <p className="text-sm font-black text-gray-900 truncate">{user.full_name || 'Anonymous'}</p>
-                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-black uppercase rounded-md border border-blue-100">
-                                    {user.role}
-                                  </span>
                                   {(isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested')) && (
                                     <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-md border border-green-100 flex items-center gap-1">
-                                      <CheckCircle className="h-2 w-2" /> Profile Completed
+                                      <CheckCircle className="h-2 w-2" /> Ready
                                     </span>
                                   )}
                                   {!isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (
@@ -990,16 +979,6 @@ export default function AdminDashboard() {
                                       placeholder="Phone"
                                     />
                                   </div>
-                                  <div className="flex items-center gap-1 flex-1 min-w-[120px]">
-                                    <MapPin className="h-2.5 w-2.5 text-gray-400" />
-                                    <input
-                                      type="text"
-                                      value={editForm.address}
-                                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                                      className="text-[10px] text-gray-400 bg-gray-50 border border-gray-200 rounded px-1 py-0.5 w-full focus:outline-none focus:border-blue-600"
-                                      placeholder="Address"
-                                    />
-                                  </div>
                                 </>
                               ) : (
                                 <>
@@ -1008,16 +987,33 @@ export default function AdminDashboard() {
                                       <Phone className="h-2.5 w-2.5" /> {user.phone}
                                     </p>
                                   )}
-                                  {user.address && (
-                                    <p className="text-[10px] text-gray-400 flex items-center gap-1 max-w-[200px] truncate">
-                                      <MapPin className="h-2.5 w-2.5 shrink-0" /> {user.address}
-                                    </p>
-                                  )}
                                 </>
                               )}
                             </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingUserId === user.id ? (
+                          <select
+                            value={editForm.role}
+                            onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                            className="text-xs font-bold bg-gray-50 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-600 appearance-none pr-8 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.5rem_center] bg-no-repeat"
+                          >
+                            <option value="owner">Owner</option>
+                            <option value="agent">Agent</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        ) : (
+                          <span className={cn(
+                            "px-2 py-1 text-[10px] font-black uppercase rounded-md border",
+                            user.role === 'admin' ? "bg-purple-50 text-purple-600 border-purple-100" :
+                            user.role === 'agent' ? "bg-blue-50 text-blue-600 border-blue-100" :
+                            "bg-gray-50 text-gray-600 border-gray-100"
+                          )}>
+                            {user.role}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {editingUserId === user.id ? (
@@ -1877,7 +1873,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                     <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Phone Number</p>
                     <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -1896,16 +1892,30 @@ export default function AdminDashboard() {
                       <CreditCard className="h-4 w-4 text-purple-600" /> {selectedUser.subscription_plan || 'Starter Plan'}
                     </p>
                   </div>
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Active Listings</p>
+                    <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-blue-600" /> {properties.filter(p => p.agent_id === selectedUser.id && p.status === 'approved').length} Properties
+                    </p>
+                  </div>
                   {selectedUser.company && (
-                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 sm:col-span-2">
                       <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Company/Agency</p>
                       <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-orange-600" /> {selectedUser.company}
                       </p>
                     </div>
                   )}
+                  {selectedUser.created_at && (
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 sm:col-span-2">
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Member Since</p>
+                      <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-gray-400" /> {new Date(selectedUser.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                  )}
                   {selectedUser.bio && (
-                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 sm:col-span-2">
                       <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Bio</p>
                       <p className="text-sm text-gray-600 leading-relaxed italic">
                         "{selectedUser.bio}"
