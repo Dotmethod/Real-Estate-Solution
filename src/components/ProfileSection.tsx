@@ -270,9 +270,9 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
         throw new Error('Please upload an image file (JPG, PNG, etc).');
       }
 
-      // Limit file size to 5MB for profile pictures
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Image size must be less than 5MB.');
+      // Limit file size to 1MB for profile pictures
+      if (file.size > 1 * 1024 * 1024) {
+        throw new Error('Image size must be less than 1MB.');
       }
 
       const fileExt = file.name.split('.').pop() || 'jpg';
@@ -299,9 +299,19 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
       setUser({ ...user, avatar_url: publicUrl });
       setSuccess('Profile image updated successfully.');
       setTimeout(() => setSuccess(null), 3000);
+      
+      // Reset file input so the same file can be selected again
+      if (e.target) {
+        e.target.value = '';
+      }
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
       setError(error.message || 'Failed to upload profile image.');
+      
+      // Reset file input even on error
+      if (e.target) {
+        e.target.value = '';
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -447,17 +457,22 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
             </div>
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={(e) => {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }}
               disabled={isSubmitting}
-              className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition-colors border-2 border-white disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Upload profile picture"
+              className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 transition-colors border-2 border-white disabled:opacity-50 disabled:cursor-not-allowed z-20"
+              title="Upload profile picture (Max 1MB)"
             >
               <Camera className="h-4 w-4 text-white" />
             </button>
+            <p className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-black text-gray-400 uppercase tracking-tighter">Max: 1MB</p>
             <input 
               ref={fileInputRef}
               type="file" 
               accept="image/*" 
+              capture={false}
               className="hidden" 
               onChange={handleAvatarUpload} 
               disabled={isSubmitting} 
