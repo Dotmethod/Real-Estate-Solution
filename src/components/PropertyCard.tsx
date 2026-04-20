@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Property } from '../types';
-import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, Share2 } from 'lucide-react';
+import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, Share2, Video } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -92,6 +92,12 @@ export default function PropertyCard({ property }: PropertyCardProps) {
             {property.is_featured && (
               <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg bg-yellow-400 text-yellow-900 flex items-center gap-1">
                 Featured
+              </span>
+            )}
+            {property.video_url && (
+              <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg bg-red-600 text-white flex items-center gap-1 animate-pulse">
+                <Video className="h-3 w-3" />
+                Video
               </span>
             )}
           </div>

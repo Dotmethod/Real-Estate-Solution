@@ -547,6 +547,13 @@ export default function AgentDashboard() {
         
         if (missingColumn) {
           console.warn(`Column ${missingColumn} missing in database, retrying without optional columns...`);
+          
+          // Inform the user about the missing column
+          setStatusMessage({ 
+            type: 'error', 
+            text: `Note: The '${missingColumn}' field couldn't be saved because it's missing in the database. Please contact the administrator.`
+          });
+          
           const { agency_fee, inspection_fee, video_url, ...safeData } = propertyData;
           if (editingProperty) {
             result = await supabase

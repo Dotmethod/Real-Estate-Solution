@@ -688,6 +688,12 @@ export default function AdminDashboard() {
 
         if (missingColumn) {
           console.warn(`Column ${missingColumn} missing in database, retrying without optional columns...`);
+          
+          setPropertyStatusMessage({ 
+            type: 'error', 
+            text: `Critical: Column '${missingColumn}' is missing in the database. Data was saved BUT without this field.` 
+          });
+
           const { agency_fee, inspection_fee, video_url, ...safeData } = propertyData;
           
           if (editingProperty) {

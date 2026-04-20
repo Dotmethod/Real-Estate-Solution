@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail, Map as MapIcon, ExternalLink } from 'lucide-react';
+import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail, Map as MapIcon, ExternalLink, Video } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -182,6 +182,15 @@ export default function PropertyDetail() {
 
   // Extract agent details
   const agent = property?.agent || null;
+
+  const getYoutubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const isYoutube = property.video_url && (property.video_url.includes('youtube.com') || property.video_url.includes('youtu.be'));
+  const youtubeId = isYoutube ? getYoutubeId(property.video_url) : null;
 
   const price = typeof property.price === 'number' ? property.price : parseFloat(property.price) || 0;
   const agencyFee = property.agency_fee ? (typeof property.agency_fee === 'number' ? property.agency_fee : parseFloat(property.agency_fee) || 0) : null;
@@ -375,6 +384,49 @@ export default function PropertyDetail() {
                 </div>
               )}
 
+              {/* Video Tour Section */}
+              {property.video_url && (
+                <div className="mt-10 md:mt-12 pt-10 border-t border-gray-50">
+                  <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-4 md:mb-6 flex items-center gap-3">
+                    Video Tour
+                    <span className="px-3 py-1 bg-red-100 text-red-600 text-[10px] uppercase font-black rounded-full animate-pulse">Live Look</span>
+                  </h3>
+                  
+                  {isYoutube && youtubeId ? (
+                    <div className="relative aspect-video rounded-2xl md:rounded-[3rem] overflow-hidden shadow-xl bg-gray-900 group">
+                      <iframe 
+                        className="absolute inset-0 w-full h-full"
+                        src={`https://www.youtube.com/embed/${youtubeId}`}
+                        title="Property Video Tour"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  ) : (
+                    <a 
+                      href={property.video_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group block relative aspect-video rounded-2xl md:rounded-[3rem] overflow-hidden shadow-xl bg-gray-900"
+                    >
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 group-hover:bg-black/20 transition-colors">
+                        <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                          <ExternalLink className="h-8 w-8 text-blue-600" />
+                        </div>
+                        <p className="mt-6 text-white font-black text-xl md:text-2xl drop-shadow-lg">Watch Video Tour</p>
+                        <p className="mt-2 text-white/80 font-bold text-sm tracking-widest uppercase">Click to view on external platform</p>
+                      </div>
+                      <img 
+                        src={property.images?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1200'}
+                        alt="Video Thumbnail"
+                        className="w-full h-full object-cover blur-[2px]"
+                        referrerPolicy="no-referrer"
+                      />
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -546,54 +598,6 @@ export default function PropertyDetail() {
                   Never pay upfront for property inspections. Always meet the agent in person and verify documents before making any payments.
                 </p>
               </div>
-
-              {/* Video Tour Section */}
-              {property.video_url && (
-                <div className="mt-10 md:mt-12">
-                  <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-4 md:mb-6 flex items-center gap-3">
-                    Video Tour
-                    <span className="px-3 py-1 bg-red-100 text-red-600 text-[10px] uppercase font-black rounded-full animate-pulse">Live Look</span>
-                  </h3>
-                  
-                  {/* YouTube Embed Logic */}
-                  {property.video_url.includes('youtube.com') || property.video_url.includes('youtu.be') ? (
-                    <div className="relative aspect-video rounded-2xl md:rounded-[3rem] overflow-hidden shadow-xl bg-gray-900">
-                      <iframe 
-                        className="absolute inset-0 w-full h-full"
-                        src={`https://www.youtube.com/embed/${
-                          property.video_url.includes('watch?v=') 
-                            ? property.video_url.split('watch?v=')[1].split('&')[0]
-                            : property.video_url.split('/').pop()
-                        }`}
-                        title="Property Video Tour"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
-                  ) : (
-                    <a 
-                      href={property.video_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="group block relative aspect-video rounded-2xl md:rounded-[3rem] overflow-hidden shadow-xl bg-gray-900"
-                    >
-                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 group-hover:bg-black/20 transition-colors">
-                        <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
-                          <ExternalLink className="h-8 w-8 text-blue-600" />
-                        </div>
-                        <p className="mt-6 text-white font-black text-xl md:text-2xl drop-shadow-lg">Watch Video Tour</p>
-                        <p className="mt-2 text-white/80 font-bold text-sm tracking-widest uppercase">Click to view on external platform</p>
-                      </div>
-                      <img 
-                        src={property.images?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1200'}
-                        alt="Video Thumbnail"
-                        className="w-full h-full object-cover blur-[2px]"
-                      />
-                    </a>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>
