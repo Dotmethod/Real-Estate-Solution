@@ -484,6 +484,60 @@ export async function createServer() {
     }
   });
 
+  // Admin: Sync Missing Emails from Auth to Profiles
+  app.post('/api/admin/sync-emails', async (req, res) => {
+    const { adminId } = req.body;
+    
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    try {
+      // 1. Verify admin
+      const { data: adminProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', adminId)
+        .single();
+
+      if (adminProfile?.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+
+      // 2. Find profiles with missing emails
+      const { data: profiles, error: fetchError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .is('email', null);
+
+      if (fetchError) throw fetchError;
+
+      if (!profiles || profiles.length === 0) {
+        return res.json({ success: true, count: 0, message: 'All profiles already have emails' });
+      }
+
+      let syncCount = 0;
+      for (const profile of profiles) {
+        // Fetch user from auth
+        const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+        
+        if (authUser?.email) {
+          // Update profile
+          await supabaseAdmin
+            .from('profiles')
+            .update({ email: authUser.email })
+            .eq('id', profile.id);
+          syncCount++;
+        }
+      }
+
+      res.json({ success: true, count: syncCount, message: `Successfully synced ${syncCount} email(s)` });
+    } catch (error: any) {
+      console.error('[ADMIN SYNC EMAILS] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Paystack Verification Endpoint
   app.post('/api/verify-payment', async (req, res) => {
     const { reference, planId, userId } = req.body;

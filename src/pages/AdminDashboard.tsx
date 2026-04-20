@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone, AlertTriangle, Mail, ShieldCheck, Search } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CreditCard, CheckCircle, XCircle, Clock, Eye, User, Edit2, Save, X, MapPin, Trash2, Plus, Image as ImageIcon, Loader2, Phone, AlertTriangle, Mail, ShieldCheck, Search, RefreshCw } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import ProfileSection from '../components/ProfileSection';
@@ -93,6 +93,9 @@ export default function AdminDashboard() {
   const [propertyStatusMessage, setPropertyStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const [isFeaturedOnly, setIsFeaturedOnly] = useState(false);
   const [propertySearchTerm, setPropertySearchTerm] = useState('');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ count: number, message: string } | null>(null);
   const [adminStatusMessage, setAdminStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
   // User Details Modal State
@@ -159,6 +162,41 @@ export default function AdminDashboard() {
       fetchPlans();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (user?.email && !smtpTestEmail) {
+      setSmtpTestEmail(user.email);
+    }
+  }, [user, smtpTestEmail]);
+
+  useEffect(() => {
+    if (activeTab === 'users' && user?.id && users.length > 0) {
+      const hasMissingEmails = users.some(u => !u.email);
+      if (hasMissingEmails && !isSyncing && !syncResult) {
+        handleSyncEmails();
+      }
+    }
+  }, [activeTab, users, user?.id]);
+
+  const handleSyncEmails = async () => {
+    if (!user?.id) return;
+    setIsSyncing(true);
+    // Silent sync if it's automatic, but we can keep the local result state
+    // setSyncResult(null); // Don't clear if we want to show it worked
+    try {
+      const response = await axios.post('/api/admin/sync-emails', { adminId: user.id });
+      if (response.data.success) {
+        setSyncResult({ count: response.data.count, message: response.data.message });
+        if (response.data.count > 0) {
+          fetchUsers();
+        }
+      }
+    } catch (error: any) {
+      console.error('Auto-sync failed:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -790,7 +828,11 @@ export default function AdminDashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-black text-gray-900">Admin Platform</h1>
-            <p className="text-gray-600">Manage agents, property owners, and listings.</p>
+            <p className="text-gray-600">
+              Welcome back, Admin. 
+              {user?.email && <span className="ml-1 text-blue-600 font-bold">({user.email})</span>}
+              - Manage agents, property owners, and listings.
+            </p>
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
             <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm min-w-max">
@@ -906,6 +948,40 @@ export default function AdminDashboard() {
       )}
 
       {activeTab === 'users' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex-1 max-w-md w-full relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+              <input
+                type="text"
+                placeholder="Search user name or email..."
+                value={userSearchTerm}
+                onChange={(e) => setUserSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all shadow-sm"
+              />
+            </div>
+            
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              {syncResult && (
+                <div className="text-[10px] bg-green-50 text-green-700 px-3 py-2 rounded-xl border border-green-100 font-bold">
+                  {syncResult.message}
+                </div>
+              )}
+              <button
+                onClick={handleSyncEmails}
+                disabled={isSyncing}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all disabled:opacity-50"
+                title="Sync emails from Supabase Auth for users missing them in profiles"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} />
+                {isSyncing ? "Syncing..." : "Sync Missing Emails"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'users' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -933,7 +1009,18 @@ export default function AdminDashboard() {
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-gray-500">No users found.</td>
                     </tr>
-                  ) : users.map((user) => (
+                  ) : users
+                       .filter(u => {
+                         if (!userSearchTerm) return true;
+                         const search = userSearchTerm.toLowerCase();
+                         return (
+                           (u.full_name?.toLowerCase() || '').includes(search) ||
+                           (u.email?.toLowerCase() || '').includes(search) ||
+                           (u.role?.toLowerCase() || '').includes(search) ||
+                           (u.status?.toLowerCase() || '').includes(search)
+                         );
+                       })
+                       .map((user) => (
                     <tr 
                       key={user.id} 
                       className="hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600"
