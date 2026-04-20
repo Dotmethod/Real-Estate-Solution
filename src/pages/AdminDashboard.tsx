@@ -917,6 +917,7 @@ export default function AdminDashboard() {
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr className="bg-gray-50/50">
                     <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Plan</th>
                     <th className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Status</th>
@@ -926,11 +927,11 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-gray-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading users...</td>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading users...</td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No users found.</td>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">No users found.</td>
                     </tr>
                   ) : users.map((user) => (
                     <tr 
@@ -959,41 +960,27 @@ export default function AdminDashboard() {
                           </div>
                           <div className="flex-1 min-w-0">
                             {editingUserId === user.id ? (
-                              <div className="space-y-2">
-                                <input
-                                  type="text"
-                                  value={editForm.full_name}
-                                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                                  className="text-sm font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
-                                  placeholder="Full Name"
-                                />
-                                <input
-                                  type="email"
-                                  value={editForm.email}
-                                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                  className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600"
-                                  placeholder="Email"
-                                />
-                              </div>
+                              <input
+                                type="text"
+                                value={editForm.full_name}
+                                onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                                className="text-sm font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-600 mb-2"
+                                placeholder="Full Name"
+                              />
                             ) : (
-                              <>
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <p className="text-sm font-black text-gray-900 truncate">{user.full_name || 'Anonymous'}</p>
-                                  {(isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested')) && (
-                                    <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-md border border-green-100 flex items-center gap-1">
-                                      <CheckCircle className="h-2 w-2" /> Ready
-                                    </span>
-                                  )}
-                                  {!isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (
-                                    <span className="px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded-md border border-orange-100 flex items-center gap-1">
-                                      <AlertTriangle className="h-2 w-2" /> Incomplete
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-500 flex items-center gap-1 mb-1.5">
-                                  <Mail className="h-3 w-3" /> {user.email || 'No email'}
-                                </p>
-                              </>
+                              <div className="flex items-center gap-2 mb-2">
+                                <p className="text-sm font-black text-gray-900 truncate">{user.full_name || 'Anonymous'}</p>
+                                {(isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (user.status === 'pending' || user.status === 'review_requested')) && (
+                                  <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-md border border-green-100 flex items-center gap-1">
+                                    <CheckCircle className="h-2 w-2" /> Ready
+                                  </span>
+                                )}
+                                {!isProfileComplete(user) && (user.role === 'agent' || user.role === 'owner') && (
+                                  <span className="px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded-md border border-orange-100 flex items-center gap-1">
+                                    <AlertTriangle className="h-2 w-2" /> Incomplete
+                                  </span>
+                                )}
+                              </div>
                             )}
                             
                             <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -1022,6 +1009,21 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingUserId === user.id ? (
+                          <input
+                            type="email"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                            className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1.5 w-full focus:outline-none focus:border-blue-600"
+                            placeholder="Email"
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <Mail className="h-3 w-3" /> {user.email || 'No email'}
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {editingUserId === user.id ? (

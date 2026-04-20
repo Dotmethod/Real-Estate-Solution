@@ -35,6 +35,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setCurrentUserId(user.id);
+      setCurrentUserEmail(user.email || null);
     }
   };
 
@@ -716,6 +718,18 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
 
         {/* Info Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                  <Mail className="h-5 w-5 text-blue-600" />
+                </div>
+                <h3 className="font-bold text-gray-900">Email Address</h3>
+              </div>
+            </div>
+            <p className="text-gray-600 truncate">{user.email || currentUserEmail || 'No email provided'}</p>
+          </div>
+
           <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">

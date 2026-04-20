@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Building2, TrendingUp, Eye, Edit, Trash2, MapPin, User, LayoutDashboard, X, Image as ImageIcon, Loader2, AlertTriangle, CreditCard, Clock, CheckCircle, Phone, MessageSquare, BarChart3, ShieldCheck } from 'lucide-react';
+import { Plus, Building2, TrendingUp, Eye, Edit, Trash2, MapPin, User, LayoutDashboard, X, Image as ImageIcon, Loader2, AlertTriangle, CreditCard, Clock, CheckCircle, Phone, MessageSquare, BarChart3, ShieldCheck, Mail } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -790,7 +790,8 @@ export default function AgentDashboard() {
               {profile?.role === 'owner' ? 'Owner Dashboard' : 'Agent Dashboard'}
             </h1>
             <p className="text-gray-600">
-              Welcome back, {profile?.full_name || user?.user_metadata?.full_name || (profile?.role === 'owner' ? 'Owner' : 'Agent')}. 
+              Welcome back, {profile?.full_name || user?.user_metadata?.full_name || (profile?.role === 'owner' ? 'Owner' : 'Agent')}.
+              <span className="ml-1 text-blue-600 font-bold">({user?.email})</span>
               {profile?.role === 'owner' ? ' Manage your property and inquiries.' : ' Manage your listings and leads.'}
             </p>
           </div>
@@ -936,6 +937,12 @@ export default function AgentDashboard() {
                     </h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Mail className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-bold truncate">
+                        {user?.email}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-2 text-gray-600">
                       <Phone className="h-4 w-4 text-blue-600" />
                       <span className={cn("text-sm font-bold", !profile?.phone && "text-orange-500 italic font-medium")}>
