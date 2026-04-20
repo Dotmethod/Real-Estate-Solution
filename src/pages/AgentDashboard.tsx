@@ -540,21 +540,26 @@ export default function AgentDashboard() {
       }
 
       // Graceful fallback if columns are missing in database
-      if (result.error && result.error.message?.includes('column') && 
-         (result.error.message?.includes('agency_fee') || result.error.message?.includes('inspection_fee'))) {
-        console.warn('Fee columns missing in database, retrying without them...');
-        const { agency_fee, inspection_fee, ...safeData } = propertyData;
-        if (editingProperty) {
-          result = await supabase
-            .from('properties')
-            .update(safeData)
-            .eq('id', editingProperty.id)
-            .select();
-        } else {
-          result = await supabase
-            .from('properties')
-            .insert([safeData])
-            .select();
+      if (result.error && result.error.message?.includes('column')) {
+        const missingColumn = ['agency_fee', 'inspection_fee', 'video_url'].find(col => 
+          result.error.message?.includes(col)
+        );
+        
+        if (missingColumn) {
+          console.warn(`Column ${missingColumn} missing in database, retrying without optional columns...`);
+          const { agency_fee, inspection_fee, video_url, ...safeData } = propertyData;
+          if (editingProperty) {
+            result = await supabase
+              .from('properties')
+              .update(safeData)
+              .eq('id', editingProperty.id)
+              .select();
+          } else {
+            result = await supabase
+              .from('properties')
+              .insert([safeData])
+              .select();
+          }
         }
       }
 
@@ -674,8 +679,8 @@ export default function AgentDashboard() {
       inspection_fee: property.inspection_fee?.toString() || '',
       video_url: property.video_url || '',
     });
-    setSelectedFiles(property.images);
-    setPreviews(property.images);
+    setSelectedFiles(property.images || []);
+    setPreviews(property.images || []);
     setShowUploadModal(true);
   };
 
@@ -1779,7 +1784,12 @@ export default function AgentDashboard() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                     {previews.map((url, idx) => (
                       <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden group">
-                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <img 
+                          src={url} 
+                          alt="" 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
                         <button
                           type="button"
                           onClick={() => removeImage(idx)}

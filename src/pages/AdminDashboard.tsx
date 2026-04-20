@@ -681,22 +681,27 @@ export default function AdminDashboard() {
       let { error } = result;
 
       // Graceful fallback if columns are missing
-      if (error && error.message?.includes('column') && 
-         (error.message?.includes('agency_fee') || error.message?.includes('inspection_fee'))) {
-        console.warn('Fee columns missing in database, retrying without them...');
-        const { agency_fee, inspection_fee, ...safeData } = propertyData;
-        
-        if (editingProperty) {
-          result = await supabase
-            .from('properties')
-            .update(safeData)
-            .eq('id', editingProperty.id);
-        } else {
-          result = await supabase
-            .from('properties')
-            .insert([{ ...safeData, agent_id: user.id }]);
+      if (error && error.message?.includes('column')) {
+        const missingColumn = ['agency_fee', 'inspection_fee', 'video_url'].find(col => 
+          error?.message?.includes(col)
+        );
+
+        if (missingColumn) {
+          console.warn(`Column ${missingColumn} missing in database, retrying without optional columns...`);
+          const { agency_fee, inspection_fee, video_url, ...safeData } = propertyData;
+          
+          if (editingProperty) {
+            result = await supabase
+              .from('properties')
+              .update(safeData)
+              .eq('id', editingProperty.id);
+          } else {
+            result = await supabase
+              .from('properties')
+              .insert([{ ...safeData, agent_id: user.id }]);
+          }
+          error = result.error;
         }
-        error = result.error;
       }
 
       if (error) throw error;
@@ -2237,7 +2242,12 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {propertyForm.images.map((url: string, index: number) => (
                     <div key={`existing-${index}`} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-gray-100">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <img 
+                        src={url} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
                       <button
                         type="button"
                         onClick={() => removeExistingImage(index)}
@@ -2251,7 +2261,12 @@ export default function AdminDashboard() {
                   {/* New Previews */}
                   {previews.map((url, index) => (
                     <div key={`new-${index}`} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-blue-200">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <img 
+                        src={url} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
                       <div className="absolute top-2 left-2 px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full">NEW</div>
                       <button
                         type="button"
