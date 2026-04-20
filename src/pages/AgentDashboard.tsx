@@ -1475,7 +1475,7 @@ export default function AgentDashboard() {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative scrollbar-hide"
           >
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-black text-gray-900">{editingProperty ? 'Edit Property' : 'Upload New Property'}</h2>
@@ -1510,7 +1510,16 @@ export default function AgentDashboard() {
               </button>
             </div>
             
-            <form className="space-y-8" onSubmit={handleSubmit}>
+            <form className="space-y-8 pb-10" onSubmit={handleSubmit}>
+              <input 
+                id="property-images-upload"
+                ref={propertyFileInputRef}
+                type="file" 
+                multiple 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleFileChange} 
+              />
               {planDetails && (
                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -1795,47 +1804,29 @@ export default function AgentDashboard() {
                       </div>
                     ))}
                     <label 
-                      onClick={() => propertyFileInputRef.current?.click()}
-                      className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all"
+                      htmlFor="property-images-upload"
+                      className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all active:scale-95"
                     >
                       <Plus className="h-6 w-6 text-gray-400" />
-                      <input 
-                        ref={propertyFileInputRef}
-                        type="file" 
-                        multiple 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handleFileChange} 
-                        onClick={(e) => e.stopPropagation()}
-                      />
                     </label>
                   </div>
                 )}
 
-                {previews.length === 0 && (
-                  <label 
-                    onClick={() => propertyFileInputRef.current?.click()}
-                    className="block bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] p-12 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all group"
-                  >
-                    <input 
-                      ref={propertyFileInputRef}
-                      type="file" 
-                      multiple 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleFileChange} 
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div className="flex flex-col items-center">
-                      <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
-                        <ImageIcon className="h-8 w-8 text-blue-600" />
-                      </div>
-                      <p className="text-lg font-bold text-gray-900">Click to upload images</p>
-                      <p className="text-sm text-gray-500 mt-1">Select multiple photos of the property</p>
-                      <p className="text-xs text-gray-400 mt-4 uppercase tracking-widest font-bold">PNG, JPG up to 10MB</p>
+              {previews.length === 0 && (
+                <label 
+                  htmlFor="property-images-upload"
+                  className="block bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] p-12 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition-all group active:scale-[0.99]"
+                >
+                  <div className="flex flex-col items-center font-sans">
+                    <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
+                      <ImageIcon className="h-8 w-8 text-blue-600" />
                     </div>
-                  </label>
-                )}
+                    <p className="text-lg font-bold text-gray-900 leading-tight">Click to upload images</p>
+                    <p className="text-sm text-gray-500 mt-1 max-w-[200px] mx-auto">Select multiple photos for better visibility</p>
+                    <p className="text-xs text-gray-400 mt-4 uppercase tracking-widest font-bold">PNG, JPG up to 10MB</p>
+                  </div>
+                </label>
+              )}
               </div>
               
               {isSubmitting && (
@@ -1860,12 +1851,12 @@ export default function AgentDashboard() {
               <button 
                 type="submit" 
                 disabled={isSubmitting}
-                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 disabled:opacity-50"
+                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed mb-20 md:mb-4"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    {editingProperty ? 'Updating Property...' : 'Publishing Property...'}
+                    {editingProperty ? 'Updating...' : 'Publishing...'}
                   </>
                 ) : (
                   editingProperty ? 'Update Property' : 'Publish Property'

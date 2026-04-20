@@ -2389,12 +2389,16 @@ export default function AdminDashboard() {
                     </div>
                   ))}
 
-                  <label className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group">
+                  <label 
+                    htmlFor="admin-property-images-upload"
+                    className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group"
+                  >
                     <div className="h-10 w-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-blue-100 transition-all">
                       <Plus className="h-5 w-5 text-gray-400 group-hover:text-blue-600" />
                     </div>
                     <span className="text-xs font-bold text-gray-400 group-hover:text-blue-600">Add More</span>
                     <input
+                      id="admin-property-images-upload"
                       type="file"
                       multiple
                       accept="image/*"
