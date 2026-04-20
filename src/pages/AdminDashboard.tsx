@@ -84,6 +84,7 @@ export default function AdminDashboard() {
     amenities: [] as string[],
     agency_fee: '',
     inspection_fee: '',
+    video_url: '',
   });
   const [isSubmittingProperty, setIsSubmittingProperty] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -574,7 +575,8 @@ export default function AdminDashboard() {
       images: property.images || [],
       amenities: property.amenities || [],
       agency_fee: property.agency_fee?.toString() || '',
-      inspection_fee: property.inspection_fee?.toString() || ''
+      inspection_fee: property.inspection_fee?.toString() || '',
+      video_url: property.video_url || ''
     });
     setSelectedFiles([]);
     setPreviews([]);
@@ -660,6 +662,7 @@ export default function AdminDashboard() {
         amenities: propertyForm.amenities,
         agency_fee: propertyForm.agency_fee ? parseFloat(propertyForm.agency_fee) : null,
         inspection_fee: propertyForm.inspection_fee ? parseFloat(propertyForm.inspection_fee) : null,
+        video_url: propertyForm.video_url.trim() || null,
         status: 'approved'
       };
 
@@ -2111,6 +2114,16 @@ export default function AdminDashboard() {
                     onChange={(e) => setPropertyForm({ ...propertyForm, inspection_fee: e.target.value })}
                     className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
                     placeholder="e.g. 5000"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Video Link (YouTube, Facebook, TikTok) - Optional</label>
+                  <input
+                    type="url"
+                    value={propertyForm.video_url}
+                    onChange={(e) => setPropertyForm({ ...propertyForm, video_url: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition-all"
+                    placeholder="e.g. https://www.youtube.com/watch?v=..."
                   />
                 </div>
               </div>

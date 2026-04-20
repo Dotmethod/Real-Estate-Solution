@@ -27,6 +27,7 @@ interface Property {
   amenities?: string[];
   agency_fee?: number;
   inspection_fee?: number;
+  video_url?: string;
 }
 
 export default function AgentDashboard() {
@@ -71,6 +72,7 @@ export default function AgentDashboard() {
     amenities: [] as string[],
     agency_fee: '',
     inspection_fee: '',
+    video_url: '',
   });
 
   useEffect(() => {
@@ -514,6 +516,7 @@ export default function AgentDashboard() {
         sqft: parseInt(formData.sqft) || 0,
         agency_fee: formData.agency_fee ? parseFloat(formData.agency_fee) : null,
         inspection_fee: formData.inspection_fee ? parseFloat(formData.inspection_fee) : null,
+        video_url: formData.video_url.trim() || null,
         agent_id: user.id,
         status: 'approved',
         amenities: formData.amenities,
@@ -588,6 +591,7 @@ export default function AgentDashboard() {
           baths: '',
           sqft: '',
           amenities: [],
+          video_url: '',
         });
         setSelectedFiles([]);
         setPreviews([]);
@@ -668,6 +672,7 @@ export default function AgentDashboard() {
       amenities: property.amenities || [],
       agency_fee: property.agency_fee?.toString() || '',
       inspection_fee: property.inspection_fee?.toString() || '',
+      video_url: property.video_url || '',
     });
     setSelectedFiles(property.images);
     setPreviews(property.images);
@@ -1671,6 +1676,17 @@ export default function AgentDashboard() {
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
                     placeholder="e.g. 5000" 
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Video Link (YouTube, Facebook, TikTok) - Optional</label>
+                  <input 
+                    type="url" 
+                    value={formData.video_url}
+                    onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-600 focus:outline-none transition-all" 
+                    placeholder="e.g. https://www.youtube.com/watch?v=..." 
+                  />
+                  <p className="mt-1 text-[10px] text-gray-500 italic">Paste a link to a video tour to help buyers visualize the property better.</p>
                 </div>
               </div>
               

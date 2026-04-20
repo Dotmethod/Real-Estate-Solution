@@ -28,6 +28,7 @@ export interface Property {
   amenities?: string[];
   agency_fee?: number;
   inspection_fee?: number;
+  video_url?: string;
 }
 
 export interface SubscriptionPlan {

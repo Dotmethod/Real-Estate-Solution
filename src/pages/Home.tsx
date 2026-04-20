@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MapPin, ArrowRight, Shield, TrendingUp, Users, Building2, Loader2 } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Shield, Users, Building2, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import PropertyCard from '../components/PropertyCard';
 import PricingCard from '../components/PricingCard';
@@ -255,10 +255,9 @@ export default function Home() {
       {/* Stats Section */}
       <section className="py-12 md:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 max-w-4xl mx-auto">
             {[
               { icon: Shield, title: "Trusted Platform", desc: "Verified agents and secure transactions for peace of mind." },
-              { icon: TrendingUp, title: "Market Insights", desc: "Get real-time data on property trends and pricing in Nigeria." },
               { icon: Users, title: "Direct Connection", desc: "Connect directly with property owners and certified agents." }
             ].map((item, idx) => (
               <motion.div 
