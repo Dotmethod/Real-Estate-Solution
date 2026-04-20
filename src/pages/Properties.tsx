@@ -19,6 +19,7 @@ const Properties = () => {
   const [listingStatus, setListingStatus] = useState(searchParams.get('listingStatus') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'newest');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   useEffect(() => {
     fetchProperties();
@@ -108,6 +109,7 @@ const Properties = () => {
     if (maxPrice) params.maxPrice = maxPrice;
     if (sort) params.sort = sort;
     setSearchParams(params);
+    setShowMobileFilters(false);
   };
 
   const handleSortChange = (newSort: string) => {
@@ -125,24 +127,41 @@ const Properties = () => {
     setMaxPrice('');
     setSort('newest');
     setSearchParams({});
+    setShowMobileFilters(false);
   };
 
+  const activeFiltersCount = [q, location, type, listingStatus, maxPrice].filter(Boolean).length;
+
   return (
-    <div className="pt-20 md:pt-24 pb-20 px-4 max-w-7xl mx-auto min-h-screen bg-gray-50">
+    <div className="pt-20 md:pt-32 pb-20 px-4 max-w-7xl mx-auto min-h-screen bg-gray-50">
       <div className="mb-8 md:mb-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 md:mb-4">All Properties</h1>
-            <p className="text-gray-600 text-sm md:text-base">Browse through our verified listings across Nigeria.</p>
+            <h1 className="text-3xl md:text-5xl font-black text-gray-900 mb-2 md:mb-4 tracking-tight">All Properties</h1>
+            <p className="text-gray-600 text-sm md:text-lg font-medium">Browse through our verified listings across Nigeria.</p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 md:gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Sort By:</span>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Mobile Filter Toggle */}
+            <button 
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="lg:hidden flex items-center gap-2 px-6 py-3 bg-white border border-gray-100 rounded-2xl shadow-sm font-bold text-gray-700 hover:bg-gray-50 transition-all active:scale-95"
+            >
+              <Search className="h-4 w-4 text-blue-600" />
+              Filters
+              {activeFiltersCount > 0 && (
+                <span className="bg-blue-600 text-white text-[10px] h-5 w-5 rounded-full flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+
+            <div className="hidden md:flex items-center gap-3">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sort By:</span>
               <select 
                 value={sort}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-bold text-gray-700 focus:outline-none focus:border-blue-600 transition-all appearance-none cursor-pointer pr-10 relative bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_0.5rem_center] bg-no-repeat"
+                className="bg-white border border-gray-100 rounded-2xl px-6 py-3 text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all appearance-none cursor-pointer pr-12 relative bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat shadow-sm"
               >
                 <option value="newest">Recently Listed</option>
                 <option value="price-asc">Price: Low to High</option>
@@ -150,10 +169,10 @@ const Properties = () => {
               </select>
             </div>
 
-            {(q || location || type || listingStatus || maxPrice || sort !== 'newest') && (
+            {activeFiltersCount > 0 && (
               <button 
                 onClick={clearFilters}
-                className="flex items-center gap-2 text-xs md:text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
+                className="flex items-center gap-2 text-xs font-black text-red-600 hover:text-red-700 transition-colors uppercase tracking-widest px-4 py-2 hover:bg-red-50 rounded-xl"
               >
                 <X className="h-4 w-4" /> Clear All
               </button>
@@ -162,80 +181,104 @@ const Properties = () => {
         </div>
 
         {/* Search & Filter Bar */}
-        <form onSubmit={handleFilter} className="bg-white p-4 rounded-2xl md:rounded-3xl shadow-xl border border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input 
-              type="text"
-              placeholder="Search properties..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm"
-            />
-          </div>
+        <div className={cn(
+          "lg:block",
+          showMobileFilters ? "fixed inset-0 z-50 p-4 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center overflow-y-auto" : "hidden"
+        )}>
+          <div className={cn(
+            "w-full max-w-lg lg:max-w-none bg-white lg:bg-transparent p-6 lg:p-0 rounded-[2.5rem] lg:rounded-none shadow-2xl lg:shadow-none border border-gray-100 lg:border-none relative transition-all duration-300",
+            showMobileFilters ? "scale-100 opacity-100" : "scale-95 opacity-0 lg:opacity-100 lg:scale-100"
+          )}>
+            {showMobileFilters && (
+              <button 
+                onClick={() => setShowMobileFilters(false)}
+                className="absolute top-6 right-6 lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-6 w-6 text-gray-400" />
+              </button>
+            )}
 
-          <div className="relative">
-            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select 
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
-            >
-              <option value="">All Locations</option>
-              {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
-                <option key={state} value={state}>{state}</option>
-              ))}
-            </select>
-          </div>
+            <div className="lg:hidden mb-8">
+              <h2 className="text-2xl font-black text-gray-900 mb-2">Search Filters</h2>
+              <p className="text-gray-500 font-bold text-sm">Narrow down your property search.</p>
+            </div>
 
-          <div className="relative">
-            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select 
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
-            >
-              <option value="">All Types</option>
-              <option value="apartment">Apartment</option>
-              <option value="house">House</option>
-              <option value="land">Land</option>
-              <option value="commercial">Commercial</option>
-            </select>
-          </div>
+            <form onSubmit={handleFilter} className="bg-white lg:p-4 rounded-3xl lg:shadow-xl lg:border lg:border-gray-100 grid grid-cols-1 lg:grid-cols-6 gap-4 md:gap-5">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input 
+                  type="text"
+                  placeholder="Search properties..."
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold"
+                />
+              </div>
 
-          <div className="relative">
-            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select 
-              value={listingStatus}
-              onChange={(e) => setListingStatus(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm appearance-none"
-            >
-              <option value="">All Status</option>
-              <option value="sale">For Sale</option>
-              <option value="rent">For Rent</option>
-              <option value="lease">For Lease</option>
-              <option value="short-let">Short Let</option>
-            </select>
-          </div>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <select 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full pl-12 pr-10 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
+                >
+                  <option value="">All Locations</option>
+                  {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
+                    <option key={state} value={state}>{state}</option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="relative">
-            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input 
-              type="number"
-              placeholder="Max Price"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl md:rounded-2xl focus:outline-none focus:border-blue-600 transition-all text-sm"
-            />
-          </div>
+              <div className="relative">
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <select 
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full pl-12 pr-10 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
+                >
+                  <option value="">All Types</option>
+                  <option value="apartment">Apartment</option>
+                  <option value="house">House</option>
+                  <option value="land">Land</option>
+                  <option value="commercial">Commercial</option>
+                </select>
+              </div>
 
-          <button 
-            type="submit"
-            className="bg-blue-600 text-white py-3 rounded-xl md:rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-          >
-            Apply Filters
-          </button>
-        </form>
+              <div className="relative">
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <select 
+                  value={listingStatus}
+                  onChange={(e) => setListingStatus(e.target.value)}
+                  className="w-full pl-12 pr-10 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
+                >
+                  <option value="">All Status</option>
+                  <option value="sale">For Sale</option>
+                  <option value="rent">For Rent</option>
+                  <option value="lease">For Lease</option>
+                  <option value="short-let">Short Let</option>
+                </select>
+              </div>
+
+              <div className="relative">
+                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input 
+                  type="number"
+                  placeholder="Max Price"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold"
+                />
+              </div>
+
+              <button 
+                type="submit"
+                className="bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
+              >
+                Show Results
+              </button>
+            </form>
+          </div>
+        </div>
         {error && (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm">
             Error: {error}

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MapPin, ArrowRight, Shield, Users, Building2, Loader2 } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Shield, Users, Building2, Loader2, X } from 'lucide-react';
 import { motion } from 'motion/react';
+import { cn } from '../lib/utils';
 import PropertyCard from '../components/PropertyCard';
 import PricingCard from '../components/PricingCard';
 import { supabase } from '../lib/supabase';
@@ -19,6 +20,7 @@ export default function Home() {
   const [searchLocation, setSearchLocation] = useState('');
   const [searchType, setSearchType] = useState('');
   const [searchListingStatus, setSearchListingStatus] = useState('');
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -164,15 +166,104 @@ export default function Home() {
               The most trusted platform for agents and property owners to list, manage, and sell properties across the nation.
             </p>
             
-            <form onSubmit={handleSearch} className="bg-white p-2 rounded-2xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row gap-2">
+            {/* Mobile Search Trigger */}
+            <div className="md:hidden">
+              <button 
+                onClick={() => setShowMobileSearch(true)}
+                className="w-full bg-white px-6 py-5 rounded-3xl shadow-2xl flex items-center gap-4 text-gray-500 font-bold active:scale-95 transition-all text-left"
+              >
+                <Search className="h-6 w-6 text-blue-600" />
+                <span className="flex-1">Search properties...</span>
+                <ArrowRight className="h-5 w-5 text-gray-300" />
+              </button>
+            </div>
+
+            {/* Mobile Search Dropdown/Modal */}
+            <div className={cn(
+              "md:hidden",
+              showMobileSearch ? "fixed inset-0 z-50 p-4 bg-gray-900/60 backdrop-blur-md flex items-center justify-center overflow-y-auto" : "hidden"
+            )}>
+              <div className="w-full bg-white p-8 rounded-[3rem] shadow-2xl relative">
+                <button 
+                  onClick={() => setShowMobileSearch(false)}
+                  className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-6 w-6 text-gray-400" />
+                </button>
+
+                <div className="mb-8">
+                  <h2 className="text-3xl font-black text-gray-900 mb-2 leading-tight">Find your <span className="text-blue-600 italic">perfect</span> home</h2>
+                  <p className="text-gray-500 font-bold">Search thousands of verified listings.</p>
+                </div>
+
+                <form onSubmit={handleSearch} className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                    <Search className="text-blue-600 h-5 w-5 shrink-0" />
+                    <input 
+                      type="text" 
+                      placeholder="Title, description..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold"
+                    />
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                    <MapPin className="text-blue-600 h-5 w-5 shrink-0" />
+                    <select 
+                      value={searchLocation}
+                      onChange={(e) => setSearchLocation(e.target.value)}
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer"
+                    >
+                      <option value="">All Locations</option>
+                      {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                    <Building2 className="text-blue-600 h-5 w-5 shrink-0" />
+                    <select 
+                      value={searchType}
+                      onChange={(e) => setSearchType(e.target.value)}
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer"
+                    >
+                      <option value="">All Types</option>
+                      <option value="house">House</option>
+                      <option value="apartment">Apartment</option>
+                      <option value="land">Land</option>
+                      <option value="office">Office</option>
+                    </select>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                    <Building2 className="text-blue-600 h-5 w-5 shrink-0" />
+                    <select 
+                      value={searchListingStatus}
+                      onChange={(e) => setSearchListingStatus(e.target.value)}
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer"
+                    >
+                      <option value="">All Status</option>
+                      <option value="sale">For Sale</option>
+                      <option value="rent">For Rent</option>
+                      <option value="lease">For Lease</option>
+                      <option value="short-let">Short Let</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 mt-4 active:scale-[0.98]">
+                    Search Properties
+                  </button>
+                </form>
+              </div>
+            </div>
+            
+            <form onSubmit={handleSearch} className="hidden md:flex bg-white p-2 rounded-2xl md:rounded-3xl shadow-2xl flex-col md:flex-row gap-2">
               <div className="flex-1 flex items-center px-4 gap-3 border-b md:border-b-0 md:border-r border-gray-100">
                 <Search className="text-gray-400 h-5 w-5 shrink-0" />
                 <input 
                   type="text" 
-                  placeholder="Search title, description..." 
+                  placeholder="Search title..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900 text-sm md:text-base"
+                  className="w-full py-4 focus:outline-none text-gray-900 text-sm md:text-base font-bold"
                 />
               </div>
               <div className="flex-1 flex items-center px-4 gap-3 border-b md:border-b-0 md:border-r border-gray-100">
@@ -180,9 +271,9 @@ export default function Home() {
                 <select 
                   value={searchLocation}
                   onChange={(e) => setSearchLocation(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base"
+                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base font-bold"
                 >
-                  <option value="">All Locations</option>
+                  <option value="">Location</option>
                   {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
                     <option key={state} value={state}>{state}</option>
                   ))}
@@ -193,9 +284,9 @@ export default function Home() {
                 <select 
                   value={searchType}
                   onChange={(e) => setSearchType(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base"
+                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base font-bold"
                 >
-                  <option value="">All Types</option>
+                  <option value="">Type</option>
                   <option value="house">House</option>
                   <option value="apartment">Apartment</option>
                   <option value="land">Land</option>
@@ -207,16 +298,16 @@ export default function Home() {
                 <select 
                   value={searchListingStatus}
                   onChange={(e) => setSearchListingStatus(e.target.value)}
-                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base"
+                  className="w-full py-4 focus:outline-none text-gray-900 bg-transparent text-sm md:text-base font-bold"
                 >
-                  <option value="">All Status</option>
-                  <option value="sale">For Sale</option>
-                  <option value="rent">For Rent</option>
-                  <option value="lease">For Lease</option>
+                  <option value="">Status</option>
+                  <option value="sale">Sale</option>
+                  <option value="rent">Rent</option>
+                  <option value="lease">Lease</option>
                   <option value="short-let">Short Let</option>
                 </select>
               </div>
-              <button type="submit" className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 mt-2 md:mt-0">
+              <button type="submit" className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 mt-2 md:mt-0 shadow-lg shadow-blue-200 active:scale-95">
                 Search <ArrowRight className="h-5 w-5" />
               </button>
             </form>
