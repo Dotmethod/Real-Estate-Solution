@@ -185,9 +185,16 @@ export default function PropertyDetail() {
 
   const getYoutubeId = (url: string) => {
     if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|live\/|shorts\/)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    try {
+      const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?)\??v?=?|(&v=)|(live\/)|(shorts\/))([^#&?]*).*/;
+      const match = url.match(regExp);
+      if (match && match[10].length === 11) {
+        return match[10];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   };
 
   const videoUrl = property.video_url?.trim();
@@ -388,48 +395,49 @@ export default function PropertyDetail() {
 
               {/* Video Tour Section */}
               {videoUrl && (
-                <div id="video-tour" className="mt-10 md:mt-12 pt-10 border-t border-gray-100 scroll-mt-24">
-                  <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-4 md:mb-6 flex items-center gap-3">
+                <div id="video-tour" className="mt-8 md:mt-16 pt-8 md:pt-12 border-t border-gray-100 scroll-mt-24">
+                  <h3 className="text-xl md:text-3xl font-black text-gray-900 mb-6 md:mb-8 flex flex-wrap items-center gap-3">
                     Video Tour
-                    <span className="px-3 py-1 bg-red-100 text-red-600 text-[10px] uppercase font-black rounded-full animate-pulse">Live Look</span>
+                    <span className="px-3 py-1 bg-red-100 text-red-600 text-[10px] uppercase font-black rounded-full animate-pulse">Video Preview</span>
                   </h3>
                   
-                  {isYoutube && youtubeId ? (
-                    <div className="relative aspect-video rounded-3xl md:rounded-[3rem] overflow-hidden shadow-2xl bg-gray-900 ring-4 ring-white">
+                  <div className="relative w-full aspect-video rounded-2xl md:rounded-[3rem] overflow-hidden shadow-2xl bg-gray-900 border border-gray-100">
+                    {isYoutube && youtubeId ? (
                       <iframe 
                         className="absolute inset-0 w-full h-full"
-                        src={`https://www.youtube.com/embed/${youtubeId}?rel=0&showinfo=0`}
+                        src={`https://www.youtube.com/embed/${youtubeId}?rel=0`}
                         title="Property Video Tour"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
+                        loading="lazy"
                       ></iframe>
-                    </div>
-                  ) : (
-                    <a 
-                      href={videoUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="group block relative aspect-video rounded-3xl md:rounded-[3rem] overflow-hidden shadow-2xl bg-gray-900 ring-4 ring-white"
-                    >
-                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 group-hover:bg-black/40 transition-all duration-500">
-                        <div className="h-24 w-24 bg-white rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform duration-500">
-                          <Play className="h-10 w-10 text-red-600 fill-current ml-1" />
+                    ) : (
+                      <a 
+                        href={videoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="group block w-full h-full relative"
+                      >
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 group-hover:bg-black/70 transition-all duration-500">
+                          <div className="h-16 w-16 md:h-24 md:w-24 bg-white rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                            <Play className="h-8 w-8 md:h-12 md:w-12 text-red-600 fill-current ml-1" />
+                          </div>
+                          <p className="mt-4 md:mt-6 text-white font-black text-lg md:text-3xl drop-shadow-md">Watch Full Video</p>
+                          <div className="mt-3 md:mt-4 flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                            <ExternalLink className="h-4 w-4 text-white" />
+                            <span className="text-white text-[10px] md:text-xs font-bold uppercase tracking-widest">Click to Open</span>
+                          </div>
                         </div>
-                        <p className="mt-6 text-white font-black text-xl md:text-3xl drop-shadow-lg">Watch Video Tour</p>
-                        <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                          <ExternalLink className="h-4 w-4 text-white" />
-                          <span className="text-white text-xs font-bold uppercase tracking-widest">Click to Open</span>
-                        </div>
-                      </div>
-                      <img 
-                        src={property.images?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1200'}
-                        alt="Video Thumbnail"
-                        className="w-full h-full object-cover blur-[2px] opacity-60"
-                        referrerPolicy="no-referrer"
-                      />
-                    </a>
-                  )}
+                        <img 
+                          src={property.images?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1200'}
+                          alt="Video Thumbnail"
+                          className="w-full h-full object-cover blur-[1px] opacity-50"
+                          referrerPolicy="no-referrer"
+                        />
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
