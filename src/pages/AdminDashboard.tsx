@@ -545,10 +545,10 @@ export default function AdminDashboard() {
     // Try to parse location into state, lga and specific area
     let state = '';
     let lga = '';
-    let area = property.location;
+    let area = property.location || '';
     
-    if (property.location.includes(',')) {
-      const parts = property.location.split(',').map(p => p.trim());
+    if (area.includes(',')) {
+      const parts = area.split(',').map(p => p.trim());
       if (parts.length >= 3) {
         area = parts[0];
         lga = parts[1];
@@ -561,21 +561,21 @@ export default function AdminDashboard() {
     }
 
     setPropertyForm({
-      title: property.title,
-      price: property.price.toString(),
+      title: property.title || '',
+      price: (property.price || 0).toString(),
       location: area,
       state: state,
       lga: lga,
-      type: property.type,
+      type: property.type || 'house',
       listing_status: property.listing_status || 'sale',
-      description: property.description,
-      beds: property.beds.toString(),
-      baths: property.baths.toString(),
-      sqft: property.sqft.toString(),
+      description: property.description || '',
+      beds: (property.beds || 0).toString(),
+      baths: (property.baths || 0).toString(),
+      sqft: (property.sqft || 0).toString(),
       images: property.images || [],
       amenities: property.amenities || [],
-      agency_fee: property.agency_fee?.toString() || '',
-      inspection_fee: property.inspection_fee?.toString() || '',
+      agency_fee: (property.agency_fee || '').toString(),
+      inspection_fee: (property.inspection_fee || '').toString(),
       video_url: property.video_url || ''
     });
     setSelectedFiles([]);
@@ -611,10 +611,26 @@ export default function AdminDashboard() {
 
   const saveProperty = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingProperty) return;
+    
     setIsSubmittingProperty(true);
     setPropertyStatusMessage(null);
 
     try {
+      if (!user) throw new Error('You must be logged in to perform this action');
+
+      const title = (propertyForm.title || '').trim();
+      if (!title || title.length < 5) throw new Error('Property title must be at least 5 characters long');
+
+      const priceValue = parseFloat(propertyForm.price);
+      if (isNaN(priceValue) || priceValue <= 0) throw new Error('Please enter a valid positive price');
+      
+      const description = (propertyForm.description || '').trim();
+      if (!description || description.length < 20) throw new Error('Description must be at least 20 characters long');
+
+      const area = (propertyForm.location || '').trim();
+      if (!area) throw new Error('Location is required');
+
       // 1. Upload new images if any
       const newImageUrls: string[] = [];
       if (selectedFiles.length > 0) {
@@ -646,7 +662,7 @@ export default function AdminDashboard() {
       }
 
       // 3. Save property to database
-      const finalLocation = `${propertyForm.location.trim()}, ${propertyForm.lga}, ${propertyForm.state}`;
+      const finalLocation = `${(propertyForm.location || '').trim()}, ${(propertyForm.lga || '').trim()}, ${(propertyForm.state || '').trim()}`;
 
       const propertyData: any = {
         title: propertyForm.title,

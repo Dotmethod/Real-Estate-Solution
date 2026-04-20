@@ -358,105 +358,75 @@ export default function AgentDashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatusMessage(null);
     
-    if (!user) {
-      setStatusMessage({ type: 'error', text: 'You must be logged in to upload a property.' });
-      return;
-    }
-
-    if (profile?.status === 'suspended') {
-      setStatusMessage({ type: 'error', text: 'Your account is suspended. You cannot submit new properties.' });
-      return;
-    }
-
-    if (profile?.status !== 'approved' && profile?.role !== 'admin') {
-      setStatusMessage({ type: 'error', text: 'Your account is pending admin approval. You cannot submit properties yet.' });
-      return;
-    }
-
-    // Check subscription limits
-    if (profile?.role !== 'admin') {
-      const currentListingCount = getCurrentListingCount();
-      const maxListings = planDetails?.limits?.properties || 0;
-      const maxImages = planDetails?.limits?.images_per_property || 5;
-
-      // Only check listing limit for new properties
-      if (!editingProperty && maxListings !== -1 && currentListingCount >= maxListings) {
-        setStatusMessage({ 
-          type: 'error', 
-          text: `You have reached the listing limit for your ${profile?.subscription_plan} plan (${maxListings} properties). Please upgrade your plan to list more.` 
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Check image limit
-      if (maxImages !== -1 && selectedFiles.length > maxImages) {
-        setStatusMessage({ 
-          type: 'error', 
-          text: `Your ${profile?.subscription_plan} plan allows a maximum of ${maxImages} images per property.` 
-        });
-        setIsSubmitting(false);
-        return;
-      }
-    }
-
-    // Manual validation to ensure we catch errors before submission
-    if (!formData.title.trim() || formData.title.trim().length < 5) {
-      setStatusMessage({ type: 'error', text: 'Property title must be at least 5 characters long.' });
-      return;
-    }
-    if (!formData.price || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
-      setStatusMessage({ type: 'error', text: 'Please enter a valid positive price.' });
-      return;
-    }
-    if (!formData.description.trim() || formData.description.trim().length < 20) {
-      setStatusMessage({ type: 'error', text: 'Description must be at least 20 characters long.' });
-      return;
-    }
-
-    if (!formData.location.trim()) {
-      setStatusMessage({ type: 'error', text: 'Location is required.' });
-      return;
-    }
-
-    if (formData.beds && (isNaN(parseInt(formData.beds)) || parseInt(formData.beds) < 0)) {
-      setStatusMessage({ type: 'error', text: 'Beds must be a non-negative number.' });
-      return;
-    }
-
-    if (formData.baths && (isNaN(parseInt(formData.baths)) || parseInt(formData.baths) < 0)) {
-      setStatusMessage({ type: 'error', text: 'Baths must be a non-negative number.' });
-      return;
-    }
-
-    if (formData.sqft && (isNaN(parseInt(formData.sqft)) || parseInt(formData.sqft) < 0)) {
-      setStatusMessage({ type: 'error', text: 'Sqft must be a non-negative number.' });
-      return;
-    }
-
-    if (selectedFiles.length === 0 && !editingProperty) {
-      setStatusMessage({ type: 'error', text: 'Please upload at least one property image.' });
-      return;
-    }
-
-    if (editingProperty && !isEditable(editingProperty.created_at)) {
-      setStatusMessage({ 
-        type: 'error', 
-        text: 'This property was posted more than 1 hour ago and can no longer be edited. Please upgrade your plan or contact support to make changes.' 
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
+    if (isSubmitting) return;
+    
     setIsSubmitting(true);
     setStatusMessage(null);
     setUploadProgress(0);
-    setUploadStatus('Starting upload...');
-
+    setUploadStatus('Validating...');
+    
     try {
-      // 1. Process images (upload new ones, keep existing ones)
+      if (!user) {
+        throw new Error('You must be logged in to upload a property.');
+      }
+
+      if (profile?.status === 'suspended') {
+        throw new Error('Your account is suspended. You cannot submit new properties.');
+      }
+
+      if (profile?.status !== 'approved' && profile?.role !== 'admin') {
+        throw new Error('Your account is pending admin approval. You cannot submit properties yet.');
+      }
+
+      // Check subscription limits
+      if (profile?.role !== 'admin') {
+        const currentListingCount = getCurrentListingCount();
+        const maxListings = planDetails?.limits?.properties || 0;
+        const maxImages = planDetails?.limits?.images_per_property || 5;
+
+        // Only check listing limit for new properties
+        if (!editingProperty && maxListings !== -1 && currentListingCount >= maxListings) {
+          throw new Error(`You have reached the listing limit for your ${profile?.subscription_plan} plan (${maxListings} properties). Please upgrade your plan to list more.`);
+        }
+
+        // Check image limit
+        if (maxImages !== -1 && selectedFiles.length > maxImages) {
+          throw new Error(`Your ${profile?.subscription_plan} plan allows a maximum of ${maxImages} images per property.`);
+        }
+      }
+
+      // Manual validation
+      const title = (formData.title || '').trim();
+      if (!title || title.length < 5) {
+        throw new Error('Property title must be at least 5 characters long.');
+      }
+
+      const priceValue = parseFloat(formData.price);
+      if (isNaN(priceValue) || priceValue <= 0) {
+        throw new Error('Please enter a valid positive price.');
+      }
+
+      const description = (formData.description || '').trim();
+      if (!description || description.length < 20) {
+        throw new Error('Description must be at least 20 characters long.');
+      }
+
+      const area = (formData.location || '').trim();
+      if (!area) {
+        throw new Error('Location is required.');
+      }
+
+      if (selectedFiles.length === 0 && !editingProperty) {
+        throw new Error('Please upload at least one property image.');
+      }
+
+      if (editingProperty && !isEditable(editingProperty.created_at)) {
+        throw new Error('This property was posted more than 1 hour ago and can no longer be edited.');
+      }
+
+      // 1. Process images
+      setUploadStatus('Processing images...');
       const finalImageUrls: string[] = [];
       const filesToUpload = selectedFiles.filter(f => typeof f !== 'string') as File[];
       const existingUrls = selectedFiles.filter(f => typeof f === 'string') as string[];
@@ -502,21 +472,24 @@ export default function AgentDashboard() {
       setUploadStatus('Saving property details...');
       
       // Combine area, lga and state for the final location string
-      const finalLocation = `${formData.location.trim()}, ${formData.lga}, ${formData.state}`;
+      const areaPart = (formData.location || '').trim();
+      const lgaPart = (formData.lga || '').trim();
+      const statePart = (formData.state || '').trim();
+      const finalLocation = `${areaPart}, ${lgaPart}, ${statePart}`;
       
       const propertyData: any = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
+        title: (formData.title || '').trim(),
+        description: (formData.description || '').trim(),
+        price: parseFloat(formData.price) || 0,
         location: finalLocation,
         type: formData.type,
         listing_status: formData.listing_status,
         beds: parseInt(formData.beds) || 0,
         baths: parseInt(formData.baths) || 0,
         sqft: parseInt(formData.sqft) || 0,
-        agency_fee: formData.agency_fee ? parseFloat(formData.agency_fee) : null,
-        inspection_fee: formData.inspection_fee ? parseFloat(formData.inspection_fee) : null,
-        video_url: formData.video_url.trim() || null,
+        agency_fee: !isNaN(parseFloat(formData.agency_fee)) ? parseFloat(formData.agency_fee) : null,
+        inspection_fee: !isNaN(parseFloat(formData.inspection_fee)) ? parseFloat(formData.inspection_fee) : null,
+        video_url: (formData.video_url || '').trim() || null,
         agent_id: user.id,
         status: 'approved',
         amenities: formData.amenities,
@@ -653,10 +626,10 @@ export default function AgentDashboard() {
     // Try to parse location into state, lga and specific area
     let state = '';
     let lga = '';
-    let area = property.location;
+    let area = property.location || '';
     
-    if (property.location.includes(',')) {
-      const parts = property.location.split(',').map(p => p.trim());
+    if (area.includes(',')) {
+      const parts = area.split(',').map(p => p.trim());
       if (parts.length >= 3) {
         area = parts[0];
         lga = parts[1];
@@ -670,20 +643,20 @@ export default function AgentDashboard() {
     }
 
     setFormData({
-      title: property.title,
-      price: property.price.toString(),
+      title: property.title || '',
+      price: (property.price || 0).toString(),
       location: area,
       state: state,
       lga: lga,
-      type: property.type,
+      type: property.type || 'house',
       listing_status: property.listing_status || 'sale',
-      description: property.description,
-      beds: property.beds.toString(),
-      baths: property.baths.toString(),
-      sqft: property.sqft.toString(),
+      description: property.description || '',
+      beds: (property.beds || 0).toString(),
+      baths: (property.baths || 0).toString(),
+      sqft: (property.sqft || 0).toString(),
       amenities: property.amenities || [],
-      agency_fee: property.agency_fee?.toString() || '',
-      inspection_fee: property.inspection_fee?.toString() || '',
+      agency_fee: (property.agency_fee || '').toString(),
+      inspection_fee: (property.inspection_fee || '').toString(),
       video_url: property.video_url || '',
     });
     setSelectedFiles(property.images || []);
@@ -1507,14 +1480,22 @@ export default function AgentDashboard() {
                     title: '',
                     price: '',
                     location: '',
+                    state: '',
+                    lga: '',
                     type: 'house',
+                    listing_status: 'sale',
                     description: '',
                     beds: '',
                     baths: '',
                     sqft: '',
+                    amenities: [],
+                    agency_fee: '',
+                    inspection_fee: '',
+                    video_url: '',
                   });
                   setSelectedFiles([]);
                   setPreviews([]);
+                  setStatusMessage(null);
                 }} 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
