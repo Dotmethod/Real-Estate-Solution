@@ -349,9 +349,9 @@ export default function AgentDashboard() {
   const getCurrentListingCount = () => {
     if (profile?.role === 'admin') return 0;
     const subscriptionUpdatedAt = user?.user_metadata?.subscription_updated_at;
-    // Count only properties created after the last subscription update
+    // Count properties created after the last subscription update, including deleted ones
+    // to prevent agents from deleting listings to bypass subscription limits.
     return properties.filter(p => 
-      p.status !== 'deleted' && 
       (!subscriptionUpdatedAt || new Date(p.created_at) > new Date(subscriptionUpdatedAt))
     ).length;
   };
