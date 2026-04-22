@@ -1506,7 +1506,7 @@ export default function AgentDashboard() {
                 }} 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X className="h-6 w-6 text-gray-400" />
+                <X className="h-6 w-6 text-red-600" />
               </button>
             </div>
             

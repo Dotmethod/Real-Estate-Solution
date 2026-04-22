@@ -181,38 +181,38 @@ export default function Home() {
             {/* Mobile Search Dropdown/Modal */}
             <div className={cn(
               "md:hidden",
-              showMobileSearch ? "fixed inset-0 z-50 p-4 bg-gray-900/60 backdrop-blur-md flex items-center justify-center overflow-y-auto" : "hidden"
+              showMobileSearch ? "fixed inset-0 z-50 p-4 bg-gray-900/60 backdrop-blur-md flex items-start justify-center pt-10 pb-10 overflow-y-auto" : "hidden"
             )}>
-              <div className="w-full bg-white p-8 rounded-[3rem] shadow-2xl relative">
+              <div className="w-full max-w-sm bg-white p-6 rounded-[2rem] shadow-2xl relative mx-auto my-auto">
                 <button 
                   onClick={() => setShowMobileSearch(false)}
-                  className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <X className="h-6 w-6 text-gray-400" />
+                  <X className="h-6 w-6 text-red-600" />
                 </button>
 
-                <div className="mb-8">
-                  <h2 className="text-3xl font-black text-gray-900 mb-2 leading-tight">Find your <span className="text-blue-600 italic">perfect</span> home</h2>
-                  <p className="text-gray-500 font-bold">Search thousands of verified listings.</p>
+                <div className="mb-6">
+                  <h2 className="text-2xl font-black text-gray-900 mb-1 leading-tight">Find your <span className="text-blue-600 italic">perfect</span> home</h2>
+                  <p className="text-gray-500 font-bold text-sm">Search thousands of verified listings.</p>
                 </div>
 
-                <form onSubmit={handleSearch} className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                <form onSubmit={handleSearch} className="space-y-3">
+                  <div className="bg-gray-50 p-3.5 rounded-xl flex items-center gap-3 border border-gray-100">
                     <Search className="text-blue-600 h-5 w-5 shrink-0" />
                     <input 
                       type="text" 
                       placeholder="Title, description..." 
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold"
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold text-sm"
                     />
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                  <div className="bg-gray-50 p-3.5 rounded-xl flex items-center gap-3 border border-gray-100">
                     <MapPin className="text-blue-600 h-5 w-5 shrink-0" />
                     <select 
                       value={searchLocation}
                       onChange={(e) => setSearchLocation(e.target.value)}
-                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer"
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer text-sm"
                     >
                       <option value="">All Locations</option>
                       {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
@@ -220,12 +220,12 @@ export default function Home() {
                       ))}
                     </select>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                  <div className="bg-gray-50 p-3.5 rounded-xl flex items-center gap-3 border border-gray-100">
                     <Building2 className="text-blue-600 h-5 w-5 shrink-0" />
                     <select 
                       value={searchType}
                       onChange={(e) => setSearchType(e.target.value)}
-                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer"
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer text-sm"
                     >
                       <option value="">All Types</option>
                       <option value="house">House</option>
@@ -234,12 +234,12 @@ export default function Home() {
                       <option value="office">Office</option>
                     </select>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100">
+                  <div className="bg-gray-50 p-3.5 rounded-xl flex items-center gap-3 border border-gray-100">
                     <Building2 className="text-blue-600 h-5 w-5 shrink-0" />
                     <select 
                       value={searchListingStatus}
                       onChange={(e) => setSearchListingStatus(e.target.value)}
-                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer"
+                      className="w-full bg-transparent focus:outline-none text-gray-900 font-bold appearance-none cursor-pointer text-sm"
                     >
                       <option value="">All Status</option>
                       <option value="sale">For Sale</option>
@@ -248,7 +248,7 @@ export default function Home() {
                       <option value="short-let">Short Let</option>
                     </select>
                   </div>
-                  <button type="submit" className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 mt-4 active:scale-[0.98]">
+                  <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 mt-2 active:scale-[0.98]">
                     Search Properties
                   </button>
                 </form>

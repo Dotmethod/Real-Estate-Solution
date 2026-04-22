@@ -1950,7 +1950,7 @@ export default function AdminDashboard() {
               onClick={() => setShowUserDetailsModal(false)} 
               className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
-              <X className="h-6 w-6 text-gray-400" />
+              <X className="h-6 w-6 text-red-600" />
             </button>
 
             <div className="flex flex-col md:flex-row gap-8">
@@ -2109,7 +2109,7 @@ export default function AdminDashboard() {
                 onClick={() => setShowPropertyModal(false)} 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X className="h-6 w-6 text-gray-400" />
+                <X className="h-6 w-6 text-red-600" />
               </button>
             </div>
             

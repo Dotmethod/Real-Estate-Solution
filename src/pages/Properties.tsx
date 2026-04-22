@@ -174,7 +174,7 @@ const Properties = () => {
                 onClick={clearFilters}
                 className="flex items-center gap-2 text-xs font-black text-red-600 hover:text-red-700 transition-colors uppercase tracking-widest px-4 py-2 hover:bg-red-50 rounded-xl"
               >
-                <X className="h-4 w-4" /> Clear All
+                <X className="h-4 w-4 text-red-600" /> Clear All
               </button>
             )}
           </div>
@@ -183,27 +183,27 @@ const Properties = () => {
         {/* Search & Filter Bar */}
         <div className={cn(
           "lg:block",
-          showMobileFilters ? "fixed inset-0 z-50 p-4 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center overflow-y-auto" : "hidden"
+          showMobileFilters ? "fixed inset-0 z-50 p-4 bg-gray-900/40 backdrop-blur-sm flex items-start justify-center pt-10 pb-10 overflow-y-auto" : "hidden"
         )}>
           <div className={cn(
-            "w-full max-w-lg lg:max-w-none bg-white lg:bg-transparent p-6 lg:p-0 rounded-[2.5rem] lg:rounded-none shadow-2xl lg:shadow-none border border-gray-100 lg:border-none relative transition-all duration-300",
+            "w-full max-w-lg lg:max-w-none bg-white lg:bg-transparent p-5 lg:p-0 rounded-[2rem] lg:rounded-none shadow-2xl lg:shadow-none border border-gray-100 lg:border-none relative transition-all duration-300 mx-auto my-auto",
             showMobileFilters ? "scale-100 opacity-100" : "scale-95 opacity-0 lg:opacity-100 lg:scale-100"
           )}>
             {showMobileFilters && (
               <button 
                 onClick={() => setShowMobileFilters(false)}
-                className="absolute top-6 right-6 lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="absolute top-4 right-4 lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X className="h-6 w-6 text-gray-400" />
+                <X className="h-6 w-6 text-red-600" />
               </button>
             )}
 
-            <div className="lg:hidden mb-8">
-              <h2 className="text-2xl font-black text-gray-900 mb-2">Search Filters</h2>
+            <div className="lg:hidden mb-6">
+              <h2 className="text-2xl font-black text-gray-900 mb-1">Search Filters</h2>
               <p className="text-gray-500 font-bold text-sm">Narrow down your property search.</p>
             </div>
 
-            <form onSubmit={handleFilter} className="bg-white lg:p-4 rounded-3xl lg:shadow-xl lg:border lg:border-gray-100 grid grid-cols-1 lg:grid-cols-6 gap-4 md:gap-5">
+            <form onSubmit={handleFilter} className="bg-white lg:p-4 rounded-2xl lg:rounded-3xl lg:shadow-xl lg:border lg:border-gray-100 grid grid-cols-1 lg:grid-cols-6 gap-3 md:gap-5">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input 
@@ -211,7 +211,7 @@ const Properties = () => {
                   placeholder="Search properties..."
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold"
                 />
               </div>
 
@@ -220,7 +220,7 @@ const Properties = () => {
                 <select 
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full pl-12 pr-10 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
+                  className="w-full pl-12 pr-10 py-3.5 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
                 >
                   <option value="">All Locations</option>
                   {Object.keys(NIGERIA_STATES_LGA).sort().map(state => (
@@ -234,7 +234,7 @@ const Properties = () => {
                 <select 
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full pl-12 pr-10 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
+                  className="w-full pl-12 pr-10 py-3.5 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
                 >
                   <option value="">All Types</option>
                   <option value="apartment">Apartment</option>
@@ -249,7 +249,7 @@ const Properties = () => {
                 <select 
                   value={listingStatus}
                   onChange={(e) => setListingStatus(e.target.value)}
-                  className="w-full pl-12 pr-10 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
+                  className="w-full pl-12 pr-10 py-3.5 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236B7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[position:right_1rem_center] bg-no-repeat"
                 >
                   <option value="">All Status</option>
                   <option value="sale">For Sale</option>
@@ -266,13 +266,13 @@ const Properties = () => {
                   placeholder="Max Price"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all text-sm font-bold"
                 />
               </div>
 
               <button 
                 type="submit"
-                className="bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
+                className="bg-blue-600 text-white py-3.5 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
               >
                 Show Results
               </button>
