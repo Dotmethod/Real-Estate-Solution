@@ -691,8 +691,10 @@ export async function createServer() {
   return app;
 }
 
-if (process.env.NODE_ENV !== 'production' || !process.env.NETLIFY) {
-  createServer().then(app => {
+export const appPromise = createServer();
+
+if (process.env.NODE_ENV !== 'production' || (!process.env.NETLIFY && !process.env.VERCEL)) {
+  appPromise.then(app => {
     const PORT = 3000;
     
     // Vite middleware for development
@@ -718,3 +720,8 @@ if (process.env.NODE_ENV !== 'production' || !process.env.NETLIFY) {
     }
   });
 }
+
+export default async (req: any, res: any) => {
+  const app = await appPromise;
+  return app(req, res);
+};
