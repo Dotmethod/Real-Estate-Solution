@@ -54,6 +54,7 @@ export default function AgentDashboard() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const propertyFileInputRef = React.useRef<HTMLInputElement>(null);
+  const modalScrollRef = React.useRef<HTMLDivElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<(File | string)[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [customAmenity, setCustomAmenity] = useState('');
@@ -560,6 +561,7 @@ export default function AgentDashboard() {
       
       // Delay closing modal to show success message
       setTimeout(() => {
+        setIsSubmitting(false);
         setShowUploadModal(false);
         setEditingProperty(null);
         setStatusMessage(null);
@@ -576,6 +578,8 @@ export default function AgentDashboard() {
           baths: '',
           sqft: '',
           amenities: [],
+          agency_fee: '',
+          inspection_fee: '',
           video_url: '',
         });
         setSelectedFiles([]);
@@ -586,8 +590,12 @@ export default function AgentDashboard() {
     } catch (error: any) {
       console.error('Error uploading property:', error);
       setStatusMessage({ type: 'error', text: `Failed to upload property: ${error.message || 'Unknown error'}` });
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Reset on error
+      
+      // Scroll to top of modal for visibility of error
+      if (modalScrollRef.current) {
+        modalScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
@@ -1473,9 +1481,10 @@ export default function AgentDashboard() {
       {showUploadModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <motion.div
+            ref={modalScrollRef}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative scrollbar-hide"
+            className="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative scrollbar-hide scroll-smooth"
           >
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-black text-gray-900">{editingProperty ? 'Edit Property' : 'Upload New Property'}</h2>
@@ -1510,7 +1519,7 @@ export default function AgentDashboard() {
               </button>
             </div>
             
-            <form className="space-y-8 pb-10" onSubmit={handleSubmit}>
+            <form className="space-y-8 pb-32 md:pb-10" onSubmit={handleSubmit}>
               <input 
                 id="property-images-upload"
                 ref={propertyFileInputRef}
@@ -1849,7 +1858,7 @@ export default function AgentDashboard() {
               )}
               
               {/* Sticky mobile button container */}
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-100 md:relative md:p-0 md:bg-transparent md:border-t-0 md:mb-4 z-[60]">
+              <div className="sticky bottom-0 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-[60] mt-auto">
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
