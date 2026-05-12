@@ -1,7 +1,8 @@
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail, Map as MapIcon, ExternalLink, Video, Play } from 'lucide-react';
+import { chatService } from '../lib/chatService';
+import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail, Map as MapIcon, ExternalLink, Video, Play, Loader2 } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -204,6 +205,44 @@ export default function PropertyDetail() {
   const price = typeof property.price === 'number' ? property.price : parseFloat(property.price) || 0;
   const agencyFee = property.agency_fee ? (typeof property.agency_fee === 'number' ? property.agency_fee : parseFloat(property.agency_fee) || 0) : null;
   const inspectionFee = property.inspection_fee ? (typeof property.inspection_fee === 'number' ? property.inspection_fee : parseFloat(property.inspection_fee) || 0) : null;
+
+  const [isStartingChat, setIsStartingChat] = React.useState(false);
+  const navigate = useNavigate();
+
+  const handleSendMessage = async () => {
+    if (!id || !agent?.id) return;
+    
+    setIsStartingChat(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Redirect to login if not authenticated
+        navigate(`/login?redirect=/properties/${id}`);
+        return;
+      }
+      
+      if (session.user.id === agent.id) {
+        // Don't chat with self
+        alert("You cannot message yourself.");
+        return;
+      }
+      
+      // Find or create conversation
+      const conversation = await chatService.getOrCreateConversation(
+        [session.user.id, agent.id],
+        id
+      );
+      
+      // Navigate to dashboard messages tab with the conversation selected
+      navigate(`/dashboard?tab=messages&convo=${conversation.id}`);
+    } catch (err) {
+      console.error('Error starting chat:', err);
+      alert('Failed to start chat. Please try again.');
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
 
   return (
     <div className="pt-24 pb-20 bg-gray-50 min-h-screen">
@@ -583,9 +622,17 @@ export default function PropertyDetail() {
                     </div>
 
                     <div className="pt-2 md:pt-4 space-y-3">
-                      <button className="w-full py-4 md:py-5 bg-blue-600 text-white rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-3">
-                        <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />
-                        Send Message
+                      <button 
+                        onClick={handleSendMessage}
+                        disabled={isStartingChat}
+                        className="w-full py-4 md:py-5 bg-blue-600 text-white rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-3 disabled:opacity-50"
+                      >
+                        {isStartingChat ? (
+                          <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
+                        ) : (
+                          <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />
+                        )}
+                        {isStartingChat ? 'Connecting...' : 'Send Message'}
                       </button>
                       <button className="w-full py-4 md:py-5 bg-white text-blue-600 border-2 border-blue-600 rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
                         <Calendar className="h-4 w-4 md:h-5 md:w-5" />

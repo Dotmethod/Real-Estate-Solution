@@ -9,6 +9,9 @@ import { supabase } from '../lib/supabase';
 import { getSafeSession } from '../lib/auth';
 import { NIGERIA_STATES_LGA } from '../constants/nigeriaData';
 
+import ChatInbox from '../components/Chat/ChatInbox';
+import ChatWindow from '../components/Chat/ChatWindow';
+
 interface Property {
   id: string;
   title: string;
@@ -33,8 +36,9 @@ interface Property {
 export default function AgentDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') as 'overview' | 'listings' | 'profile' || 'overview';
-  const [activeTab, setActiveTab] = useState<'overview' | 'listings' | 'profile'>(initialTab);
+  const initialTab = searchParams.get('tab') as 'overview' | 'listings' | 'profile' | 'messages' || 'overview';
+  const [activeTab, setActiveTab] = useState<'overview' | 'listings' | 'profile' | 'messages'>(initialTab);
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -285,10 +289,34 @@ export default function AgentDashboard() {
 
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'profile' || tab === 'overview' || tab === 'listings') {
+    if (tab === 'profile' || tab === 'overview' || tab === 'listings' || tab === 'messages') {
       setActiveTab(tab as any);
+      
+      // Auto-select conversation if provided
+      const convoId = searchParams.get('convo');
+      if (tab === 'messages' && convoId) {
+        const fetchAndSelectConvo = async () => {
+          const { data, error } = await supabase
+            .from('conversations')
+            .select('*')
+            .eq('id', convoId)
+            .single();
+          
+          if (!error && data) {
+            const otherId = data.participants.find((p: string) => p !== user?.id);
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', otherId)
+              .single();
+            
+            setSelectedConversation({ ...data, recipient: profile });
+          }
+        };
+        if (user) fetchAndSelectConvo();
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, user]);
 
   const fetchProperties = async () => {
     setIsLoading(true);
@@ -795,12 +823,12 @@ export default function AgentDashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
           <div>
             <h1 className="text-3xl font-black text-gray-900">
-              {profile?.role === 'owner' ? 'Owner Dashboard' : 'Agent Dashboard'}
+              {profile?.role === 'owner' ? 'Owner Dashboard' : profile?.role === 'user' ? 'Buyer Dashboard' : 'Agent Dashboard'}
             </h1>
             <p className="text-gray-600">
-              Welcome back, {profile?.full_name || user?.user_metadata?.full_name || (profile?.role === 'owner' ? 'Owner' : 'Agent')}.
+              Welcome back, {profile?.full_name || user?.user_metadata?.full_name || (profile?.role === 'owner' ? 'Owner' : profile?.role === 'user' ? 'Buyer' : 'Agent')}.
               <span className="ml-1 text-blue-600 font-bold">({user?.email})</span>
-              {profile?.role === 'owner' ? ' Manage your property and inquiries.' : ' Manage your listings and leads.'}
+              {profile?.role === 'owner' ? ' Manage your property and inquiries.' : profile?.role === 'user' ? ' Manage your messages and profile.' : ' Manage your listings and leads.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-4">
@@ -814,15 +842,17 @@ export default function AgentDashboard() {
               >
                 <LayoutDashboard className="h-4 w-4" /> Overview
               </button>
-              <button
-                onClick={() => setActiveTab('listings')}
-                className={cn(
-                  "px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
-                  activeTab === 'listings' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
-                )}
-              >
-                <Building2 className="h-4 w-4" /> Listings
-              </button>
+              {profile?.role !== 'user' && (
+                <button
+                  onClick={() => setActiveTab('listings')}
+                  className={cn(
+                    "px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
+                    activeTab === 'listings' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  <Building2 className="h-4 w-4" /> Listings
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('profile')}
                 className={cn(
@@ -832,8 +862,17 @@ export default function AgentDashboard() {
               >
                 <User className="h-4 w-4" /> Profile
               </button>
+              <button
+                onClick={() => setActiveTab('messages')}
+                className={cn(
+                  "px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
+                  activeTab === 'messages' ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                )}
+              >
+                <MessageSquare className="h-4 w-4" /> Messages
+              </button>
             </div>
-            {(profile?.status === 'approved' || profile?.role === 'admin') ? (
+            {(profile?.status === 'approved' || profile?.role === 'admin') && profile?.role !== 'user' ? (
               <div className="relative group">
                 <button
                   onClick={() => {
@@ -983,7 +1022,7 @@ export default function AgentDashboard() {
             <div className="space-y-8 md:space-y-12 mb-12">
             {/* Your Stats Widget */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              {[
+              {profile?.role !== 'user' ? [
                 { 
                   label: 'Active Listings', 
                   value: properties.filter(p => p.status !== 'deleted').length, 
@@ -1042,125 +1081,143 @@ export default function AgentDashboard() {
                   </div>
                   <p className="mt-4 text-[10px] text-gray-400 font-medium italic">{stat.description}</p>
                 </motion.div>
-              ))}
+              )) : (
+                <div className="col-span-full">
+                  <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col items-center text-center">
+                    <div className="h-20 w-20 bg-blue-50 rounded-[2rem] flex items-center justify-center mb-6">
+                      <MessageSquare className="h-10 w-10 text-blue-600" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 mb-2">Connect with Agents</h3>
+                    <p className="text-gray-500 max-w-sm">Use our real-time chat to negotiate deals, ask questions, and book inspections directly with property owners and verified agents.</p>
+                    <button 
+                      onClick={() => setActiveTab('messages')}
+                      className="mt-8 px-8 py-4 bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                    >
+                      Go to Messages
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Performance Chart & Insights */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm"
-              >
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-xl font-black text-gray-900">Performance Trends</h3>
-                    <p className="text-xs text-gray-500 font-medium">Daily property views and interactions</p>
+            {profile?.role !== 'user' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm"
+                >
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-xl font-black text-gray-900">Performance Trends</h3>
+                      <p className="text-xs text-gray-500 font-medium">Daily property views and interactions</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg">Views</button>
+                      <button className="px-3 py-1 bg-gray-50 text-gray-400 text-[10px] font-black rounded-lg">Leads</button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg">Views</button>
-                    <button className="px-3 py-1 bg-gray-50 text-gray-400 text-[10px] font-black rounded-lg">Leads</button>
+                  
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={[
+                          { name: 'Mon', views: 400 },
+                          { name: 'Tue', views: 1200 },
+                          { name: 'Wed', views: 900 },
+                          { name: 'Thu', views: 1800 },
+                          { name: 'Fri', views: 1500 },
+                          { name: 'Sat', views: 2400 },
+                          { name: 'Sun', views: 2100 },
+                        ]}
+                        margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                      >
+                        <defs>
+                          <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                        />
+                        <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            borderRadius: '16px', 
+                            border: 'none', 
+                            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="views" 
+                          stroke="#2563eb" 
+                          strokeWidth={4}
+                          fillOpacity={1} 
+                          fill="url(#colorViews)" 
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
-                </div>
-                
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={[
-                        { name: 'Mon', views: 400 },
-                        { name: 'Tue', views: 1200 },
-                        { name: 'Wed', views: 900 },
-                        { name: 'Thu', views: 1800 },
-                        { name: 'Fri', views: 1500 },
-                        { name: 'Sat', views: 2400 },
-                        { name: 'Sun', views: 2100 },
-                      ]}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          borderRadius: '16px', 
-                          border: 'none', 
-                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                          fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="views" 
-                        stroke="#2563eb" 
-                        strokeWidth={4}
-                        fillOpacity={1} 
-                        fill="url(#colorViews)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </motion.div>
+                </motion.div>
 
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col"
-              >
-                <div className="flex items-center gap-2 mb-6">
-                  <div className="h-8 w-8 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600">
-                    <TrendingUp className="h-4 w-4" />
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col"
+                >
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="h-8 w-8 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-lg font-black text-gray-900">Optimization Tips</h3>
                   </div>
-                  <h3 className="text-lg font-black text-gray-900">Optimization Tips</h3>
-                </div>
 
-                <div className="space-y-4 flex-1">
-                  {[
-                    { title: 'Update Images', text: 'Properties with 5+ photos get 40% more views.', icon: ImageIcon, bg: 'bg-blue-50', color: 'text-blue-600' },
-                    { title: 'Verify Details', text: 'Verified listings attract high-intent buyers.', icon: ShieldCheck, bg: 'bg-green-50', color: 'text-green-600' },
-                    { title: 'Response Time', text: 'Slow response reduces your conversion by 15%.', icon: Clock, bg: 'bg-orange-50', color: 'text-orange-600' },
-                  ].map((tip, i) => (
-                    <div key={i} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-100 transition-colors group">
-                      <div className="flex items-start gap-3">
-                        <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-transform group-hover:rotate-12", tip.bg, tip.color)}>
-                          <tip.icon className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-gray-900 mb-1">{tip.title}</p>
-                          <p className="text-[10px] text-gray-500 font-medium leading-relaxed">{tip.text}</p>
+                  <div className="space-y-4 flex-1">
+                    {[
+                      { title: 'Update Images', text: 'Properties with 5+ photos get 40% more views.', icon: ImageIcon, bg: 'bg-blue-50', color: 'text-blue-600' },
+                      { title: 'Verify Details', text: 'Verified listings attract high-intent buyers.', icon: ShieldCheck, bg: 'bg-green-50', color: 'text-green-600' },
+                      { title: 'Response Time', text: 'Slow response reduces your conversion by 15%.', icon: Clock, bg: 'bg-orange-50', color: 'text-orange-600' },
+                    ].map((tip, i) => (
+                      <div key={i} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-100 transition-colors group">
+                        <div className="flex items-start gap-3">
+                          <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-transform group-hover:rotate-12", tip.bg, tip.color)}>
+                            <tip.icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-gray-900 mb-1">{tip.title}</p>
+                            <p className="text-[10px] text-gray-500 font-medium leading-relaxed">{tip.text}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                <button 
-                  onClick={() => setActiveTab('listings')}
-                  className="mt-6 w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition-colors"
-                >
-                  Manage Listings
-                </button>
-              </motion.div>
-            </div>
+                  <button 
+                    onClick={() => setActiveTab('listings')}
+                    className="mt-6 w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition-colors"
+                  >
+                    Manage Listings
+                  </button>
+                </motion.div>
+              </div>
+            )}
           </div>
 
             {/* Subscription Limits */}
-            {planDetails && (
+            {planDetails && profile?.role !== 'user' && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1442,6 +1499,36 @@ export default function AgentDashboard() {
         {activeTab === 'profile' && (
           <div className="max-w-3xl mx-auto">
             <ProfileSection userId={user?.id || ''} />
+          </div>
+        )}
+
+        {activeTab === 'messages' && (
+          <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col md:flex-row h-[700px]">
+            <div className="w-full md:w-80 lg:w-96 shrink-0 border-r border-gray-100">
+              <ChatInbox 
+                currentUser={user} 
+                selectedId={selectedConversation?.id} 
+                onSelectConversation={(convo) => setSelectedConversation(convo)} 
+              />
+            </div>
+            <div className="flex-1 bg-gray-50/30">
+              {selectedConversation ? (
+                <ChatWindow 
+                  conversationId={selectedConversation.id} 
+                  currentUser={user} 
+                  recipient={selectedConversation.recipient} 
+                  isEmbedded={true}
+                />
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-12">
+                  <div className="h-24 w-24 bg-blue-50 rounded-[2rem] flex items-center justify-center mb-6">
+                    <MessageSquare className="h-10 w-10 text-blue-300" />
+                  </div>
+                  <h3 className="text-xl font-black text-gray-900 mb-2">Select a Conversation</h3>
+                  <p className="text-gray-500 max-w-sm">Choose a chat from the sidebar to start messaging your potential buyers and renters.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

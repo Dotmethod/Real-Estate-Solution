@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, Home, Building2, User as UserIcon, LogOut, LayoutDashboard } from 'lucide-react';
+import { Menu, X, Home, Building2, User as UserIcon, LogOut, LayoutDashboard, MessageSquare } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { getSafeSession } from '../lib/auth';
@@ -11,6 +11,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchProfile = async (userId: string) => {
@@ -22,11 +23,24 @@ export default function Navbar() {
       setUserRole(data?.role || null);
     };
 
+    const fetchUnreadCount = async (userId: string) => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id')
+        .neq('sender_id', userId)
+        .eq('read', false);
+      
+      if (!error && data) {
+        setUnreadCount(data.length);
+      }
+    };
+
     // Get initial session
     getSafeSession().then(({ session }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+        fetchUnreadCount(session.user.id);
       }
     });
 
@@ -35,13 +49,39 @@ export default function Navbar() {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+        fetchUnreadCount(session.user.id);
       } else {
         setUserRole(null);
+        setUnreadCount(0);
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    // Listen for new messages
+    const messageSubscription = supabase
+      .channel('navbar-messages')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          if (user && payload.new.sender_id !== user.id) {
+            fetchUnreadCount(user.id);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        () => {
+          if (user) fetchUnreadCount(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      messageSubscription.unsubscribe();
+    };
+  }, [user?.id]);
 
   const handleLogout = async () => {
     console.log('Logout initiated');
@@ -101,6 +141,18 @@ export default function Navbar() {
             
             {user ? (
               <div className="flex items-center gap-6">
+                <Link
+                  to="/dashboard?tab=messages"
+                  className="relative p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                >
+                  <MessageSquare className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 h-4 w-4 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+
                 <button
                   onClick={() => window.location.href = '/login?reset=true'}
                   className="text-[10px] text-red-400 hover:text-red-600 underline uppercase tracking-tighter font-bold"

@@ -1,4 +1,4 @@
-export type UserRole = 'agent' | 'owner' | 'admin';
+export type UserRole = 'agent' | 'owner' | 'admin' | 'user';
 
 export interface User {
   id: string;
@@ -8,6 +8,29 @@ export interface User {
   status: 'pending' | 'approved' | 'rejected';
   subscriptionPlanId: string;
   createdAt: string;
+  avatar_url?: string;
+  full_name?: string;
+}
+
+export interface Conversation {
+  id: string;
+  created_at: string;
+  last_message_at: string;
+  property_id?: string;
+  participants: string[]; // User IDs
+}
+
+export interface Message {
+  id: string;
+  created_at: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  read: boolean;
+}
+
+export interface ChatParticipant extends User {
+  last_read_at?: string;
 }
 
 export interface Property {
