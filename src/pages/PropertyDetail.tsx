@@ -34,6 +34,8 @@ export default function PropertyDetail() {
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [coordinates, setCoordinates] = React.useState<[number, number] | null>(null);
   const [isGeocoding, setIsGeocoding] = React.useState(false);
+  const [isStartingChat, setIsStartingChat] = React.useState(false);
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     const geocodeAddress = async () => {
@@ -205,9 +207,6 @@ export default function PropertyDetail() {
   const price = typeof property.price === 'number' ? property.price : parseFloat(property.price) || 0;
   const agencyFee = property.agency_fee ? (typeof property.agency_fee === 'number' ? property.agency_fee : parseFloat(property.agency_fee) || 0) : null;
   const inspectionFee = property.inspection_fee ? (typeof property.inspection_fee === 'number' ? property.inspection_fee : parseFloat(property.inspection_fee) || 0) : null;
-
-  const [isStartingChat, setIsStartingChat] = React.useState(false);
-  const navigate = useNavigate();
 
   const handleSendMessage = async () => {
     if (!id || !agent?.id) return;
