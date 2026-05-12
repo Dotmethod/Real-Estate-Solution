@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Building2, TrendingUp, Eye, Edit, Trash2, MapPin, User, LayoutDashboard, X, Image as ImageIcon, Loader2, AlertTriangle, CreditCard, Clock, CheckCircle, Phone, MessageSquare, BarChart3, ShieldCheck, Mail } from 'lucide-react';
+import { Plus, Building2, TrendingUp, Eye, Edit, Trash2, MapPin, User, LayoutDashboard, X, Image as ImageIcon, Loader2, AlertTriangle, CreditCard, Clock, CheckCircle, Phone, MessageSquare, BarChart3, ShieldCheck, Mail, ArrowRight } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -431,6 +431,19 @@ export default function AgentDashboard() {
         throw new Error('Property title must be at least 5 characters long.');
       }
 
+      if (!formData.state) {
+        throw new Error('Please select a State.');
+      }
+
+      if (!formData.lga) {
+        throw new Error('Please select an LGA.');
+      }
+
+      const area = (formData.location || '').trim();
+      if (!area) {
+        throw new Error('Please enter a specific Area or Street Address.');
+      }
+
       const priceValue = parseFloat(formData.price);
       if (isNaN(priceValue) || priceValue <= 0) {
         throw new Error('Please enter a valid positive price.');
@@ -439,11 +452,6 @@ export default function AgentDashboard() {
       const description = (formData.description || '').trim();
       if (!description || description.length < 20) {
         throw new Error('Description must be at least 20 characters long.');
-      }
-
-      const area = (formData.location || '').trim();
-      if (!area) {
-        throw new Error('Location is required.');
       }
 
       if (selectedFiles.length === 0 && !editingProperty) {
@@ -1945,11 +1953,11 @@ export default function AgentDashboard() {
               )}
               
               {/* Sticky mobile button container */}
-              <div className="sticky bottom-0 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-[60] mt-auto">
+              <div className="sticky bottom-0 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-4 bg-white shadow-[0_-10px_20px_rgba(0,0,0,0.05)] border-t border-gray-100 z-[70] mt-10">
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <>
@@ -1957,7 +1965,10 @@ export default function AgentDashboard() {
                       {editingProperty ? 'Updating...' : 'Publishing...'}
                     </>
                   ) : (
-                    editingProperty ? 'Update Property' : 'Publish Property'
+                    <>
+                      {editingProperty ? 'Update Property' : 'Publish Property'}
+                      <ArrowRight className="h-5 w-5" />
+                    </>
                   )}
                 </button>
               </div>
