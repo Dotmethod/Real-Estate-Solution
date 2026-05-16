@@ -386,7 +386,7 @@ export default function AgentDashboard() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     if (isSubmitting) return;
     
@@ -395,10 +395,25 @@ export default function AgentDashboard() {
     setUploadProgress(0);
     setUploadStatus('Validating...');
     
+    // Safety timeout to prevent infinite loading (90 seconds)
+    const safetyTimeout = setTimeout(() => {
+      setIsSubmitting(current => {
+        if (current) {
+          setStatusMessage({ type: 'error', text: 'The request timed out. Please check your internet connection and try again.' });
+          return false;
+        }
+        return current;
+      });
+    }, 90000);
+
     try {
       if (!user) {
         throw new Error('You must be logged in to upload a property.');
       }
+
+      console.log('Starting property submission...');
+      console.log('Selected files count:', selectedFiles.length);
+      console.log('Form data:', { ...formData, description: formData.description.substring(0, 20) + '...' });
 
       if (profile?.status === 'suspended') {
         throw new Error('Your account is suspended. You cannot submit new properties.');
@@ -463,7 +478,7 @@ export default function AgentDashboard() {
       }
 
       // 1. Process images
-      setUploadStatus('Processing images...');
+      setUploadStatus('Uploading new property...');
       const finalImageUrls: string[] = [];
       const filesToUpload = selectedFiles.filter(f => typeof f !== 'string') as File[];
       const existingUrls = selectedFiles.filter(f => typeof f === 'string') as string[];
@@ -472,7 +487,7 @@ export default function AgentDashboard() {
         const totalFiles = filesToUpload.length;
         for (let i = 0; i < totalFiles; i++) {
           const file = filesToUpload[i];
-          setUploadStatus(`Uploading new image ${i + 1} of ${totalFiles}...`);
+          setUploadStatus(`Uploading new property (Image ${i + 1}/${totalFiles})...`);
           
           const fileExt = file.name.split('.').pop();
           const fileName = `${Math.random()}.${fileExt}`;
@@ -480,7 +495,18 @@ export default function AgentDashboard() {
 
           const { error: uploadError, data: uploadData } = await supabase.storage
             .from('property-images')
-            .upload(filePath, file);
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+              // Track progress per byte for better mobile feedback
+              //@ts-ignore - onUploadProgress is supported in v2
+              onUploadProgress: (progress: any) => {
+                const percentPerFile = 100 / totalFiles;
+                const currentFileProgress = (progress.loaded / progress.total) * percentPerFile;
+                const totalProgress = (i * percentPerFile) + currentFileProgress;
+                setUploadProgress(Math.min(99, Math.round(totalProgress)));
+              }
+            });
 
           if (uploadError) {
             console.error('Upload error:', uploadError);
@@ -493,8 +519,6 @@ export default function AgentDashboard() {
               .getPublicUrl(filePath);
             finalImageUrls.push(publicUrl);
           }
-          
-          setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
         }
       }
 
@@ -589,11 +613,22 @@ export default function AgentDashboard() {
 
       console.log('Property saved successfully:', data);
       
+      // Clear safety timeout
+      clearTimeout(safetyTimeout);
+      
+      setUploadStatus('Success!');
+      setUploadProgress(100);
+      
       // Success!
       setStatusMessage({ 
         type: 'success', 
         text: editingProperty ? 'Property updated successfully!' : 'Property published successfully! Your listing is now live.' 
       });
+      
+      // Scroll to top of modal for visibility of success
+      if (modalScrollRef.current) {
+        modalScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       
       // Delay closing modal to show success message
       setTimeout(() => {
@@ -624,9 +659,10 @@ export default function AgentDashboard() {
       }, 2000);
 
     } catch (error: any) {
+      clearTimeout(safetyTimeout);
       console.error('Error uploading property:', error);
       setStatusMessage({ type: 'error', text: `Failed to upload property: ${error.message || 'Unknown error'}` });
-      setIsSubmitting(false); // Reset on error
+      setIsSubmitting(false); 
       
       // Scroll to top of modal for visibility of error
       if (modalScrollRef.current) {
@@ -1953,9 +1989,18 @@ export default function AgentDashboard() {
               )}
               
               {/* Sticky mobile button container */}
-              <div className="sticky bottom-0 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-4 bg-white shadow-[0_-10px_20px_rgba(0,0,0,0.05)] border-t border-gray-100 z-[70] mt-10">
+              <div className="sticky bottom-0 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-4 bg-white/95 backdrop-blur-sm shadow-[0_-10px_20px_rgba(0,0,0,0.05)] border-t border-gray-100 z-[70] mt-10">
                 <button 
                   type="submit" 
+                  onClick={(e) => {
+                    // Force submit if form isn't catching it (common on some mobile browsers with sticky buttons)
+                    if (!isSubmitting) {
+                      const form = e.currentTarget.closest('form');
+                      if (form && !form.checkValidity()) {
+                        form.reportValidity();
+                      }
+                    }
+                  }}
                   disabled={isSubmitting}
                   className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
