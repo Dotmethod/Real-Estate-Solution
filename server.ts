@@ -68,6 +68,122 @@ export async function createServer() {
     res.json({ status: 'ok' });
   });
 
+  // Custom sign up endpoint to bypass email verification (to avoid "Error sending confirmation email" errors)
+  app.post('/api/auth/signup', async (req, res) => {
+    const { email, password, name, role } = req.body;
+
+    if (!email || !password || !name || !role) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    try {
+      const finalRole = email.toLowerCase() === 'ebokpo.method@gmail.com' ? 'admin' : role;
+      
+      // Fetch default plan
+      let defaultPlanName = 'Free Plan';
+      try {
+        const { data: planData, error: planError } = await supabaseAdmin
+          .from('subscription_plans')
+          .select('name')
+          .eq('price', 0)
+          .limit(1)
+          .single();
+        
+        if (planData && !planError) {
+          defaultPlanName = planData.name;
+        }
+      } catch (err) {
+        console.error('Error fetching default plan inside custom signup:', err);
+      }
+
+      // Create user using admin API with email_confirm: true
+      const { data, error: signupError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: name,
+          role: finalRole,
+          status: finalRole === 'admin' ? 'approved' : 'pending',
+          subscription_updated_at: new Date().toISOString(),
+        }
+      });
+
+      if (signupError) throw signupError;
+
+      if (data?.user) {
+        // Create matching record in profiles table
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            full_name: name,
+            role: finalRole,
+            status: finalRole === 'admin' ? 'approved' : 'pending',
+            email: email,
+            subscription_plan: defaultPlanName
+          });
+
+        if (profileError) {
+          console.error('Error writing profile:', profileError);
+        }
+
+        // Send a simpler welcome query that doesn't demand email verification
+        if (smtpConfig.host && smtpConfig.auth.user && smtpConfig.auth.pass) {
+          try {
+            const appUrl = process.env.APP_URL && !process.env.APP_URL.includes('localhost') 
+              ? process.env.APP_URL 
+              : 'https://ais-dev-kqlxcloxp3rbt7rbrldrg2-81034014431.europe-west1.run.app';
+
+            await transporter.sendMail({
+              from: smtpConfig.from,
+              to: email,
+              subject: 'Welcome to Real Estate Solution!',
+              html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                  <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #2563eb; margin-bottom: 10px;">Welcome!</h1>
+                    <p style="color: #666;">Real Estate Solution</p>
+                  </div>
+                  <p>Hello <strong>${name}</strong>,</p>
+                  <p>Thank you for joining <strong>Real Estate Solution</strong>! We're glad to have you with us.</p>
+                  
+                  <p>Your account has been created successfully. You can log in using the link below:</p>
+                  
+                  <div style="text-align: center; margin: 35px 0;">
+                    <a href="${appUrl}/login" 
+                       style="background-color: #2563eb; color: white; padding: 14px 32px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);">
+                      Login to Dashboard
+                    </a>
+                  </div>
+      
+                  <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0;">
+                    <p style="margin: 0; color: #475569; font-size: 14px;">
+                      <strong>What happens next?</strong><br>
+                      Your account details will be reviewed by our administrators. This usually takes less than 24 hours. You'll receive another email once your account is fully approved.
+                    </p>
+                  </div>
+      
+                  <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+                  <p style="color: #999; font-size: 12px; text-align: center;">&copy; 2026 Real Estate Solution. All rights reserved.</p>
+                </div>
+              `,
+            });
+          } catch (emailErr) {
+            console.error('Error sending welcome email from server signup:', emailErr);
+          }
+        }
+
+        return res.json({ success: true, user: data.user });
+      }
+
+      throw new Error('User creation succeeded but returned no user object');
+    } catch (error: any) {
+      console.error('Signup handler error:', error);
+      return res.status(error.status || 500).json({ error: error.message || 'Registration failed' });
+    }
+  });
+
   // Email Approval Endpoint
   app.post('/api/send-approval-email', async (req, res) => {
     const { userId, email, name } = req.body;

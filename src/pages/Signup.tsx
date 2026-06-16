@@ -42,72 +42,39 @@ export default function Signup() {
     setError('');
 
     try {
-      // Automatically assign admin role to the developer/owner email
-      const finalRole = email.toLowerCase() === 'ebokpo.method@gmail.com' ? 'admin' : role;
-
-      let origin = process.env.APP_URL || window.location.origin;
-      if (origin.includes('localhost') && !window.location.hostname.includes('localhost')) {
-        origin = `${window.location.protocol}//${window.location.host}`;
-      }
-
-      const { data, error: signupError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${origin}/email-confirmation`,
-          data: {
-            full_name: name,
-            role: finalRole,
-            status: finalRole === 'admin' ? 'approved' : 'pending',
-            subscription_updated_at: new Date().toISOString(),
-          },
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          role,
+        }),
       });
 
-      if (signupError) throw signupError;
+      const resData = await response.json();
 
-      if (data.user) {
-        // Update user metadata for redundancy so fallbacks can recover state if profiles table write fails or is delayed
-        await supabase.auth.updateUser({
-          data: {
-            full_name: name,
-            role: finalRole,
-          }
-        });
+      if (!response.ok) {
+        throw new Error(resData.error || 'Registration failed');
+      }
 
-        // Create/Update profile with additional info
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: data.user.id,
-            full_name: name,
-            role: finalRole,
-            status: finalRole === 'admin' ? 'approved' : 'pending',
-            email: email,
-            subscription_plan: defaultPlanName
-          });
-
-        if (profileError) console.error('Error creating/updating profile:', profileError);
-
-        // Send Welcome Email to User
-        try {
-          fetch('/api/send-welcome-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name }),
-          }).catch(err => console.error('Error calling welcome email API:', err));
-        } catch (emailErr) {
-          console.error('Error triggering email notifications:', emailErr);
-        }
-
-        // Inform user about email verification
-        setStatusMessage('Account created! Please check your email for a verification link. You must verify your email before you can log in.');
+      if (resData.success) {
+        // Inform user about successful signup and redirect to login
+        setStatusMessage('Signup successful! Redirecting you to login...');
         
         // Scroll to top to see the message
         window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          navigate('/login?signup_success=true');
+        }, 3000);
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'An error occurred during sign up.');
     } finally {
       setIsLoading(false);
     }

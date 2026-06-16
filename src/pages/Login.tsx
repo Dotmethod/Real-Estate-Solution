@@ -63,6 +63,8 @@ export default function Login() {
       setInfoMessage('Your account is pending admin approval. You will be able to log in once approved.');
     } else if (searchParams.get('message') === 'verify') {
       setInfoMessage('A verification email has been sent. Please check your inbox and verify your email to continue.');
+    } else if (searchParams.get('signup_success') === 'true') {
+      setInfoMessage('Registration successful! You can now log in with your email and password.');
     }
   }, [searchParams, navigate]);
 
