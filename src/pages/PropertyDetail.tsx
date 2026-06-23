@@ -200,7 +200,7 @@ export default function PropertyDetail() {
     }
   };
 
-  const videoUrl = property.video_url?.trim();
+  const videoUrl = typeof property.video_url === 'string' ? property.video_url.trim() : '';
   const isYoutube = videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'));
   const youtubeId = isYoutube ? getYoutubeId(videoUrl) : null;
 

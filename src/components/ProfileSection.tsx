@@ -62,7 +62,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
       
       if (error) throw error;
       setUser(data);
-      setNewName(data.full_name);
+      setNewName(data.full_name || '');
       setNewPhone(data.phone || '');
       setNewAddress(data.address || '');
       setNewBio(data.bio || '');
@@ -88,7 +88,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   };
 
   const handleSaveName = async () => {
-    if (newName.trim().length < 3) {
+    if ((newName || '').trim().length < 3) {
       setError('Name must be at least 3 characters long.');
       return;
     }
@@ -114,8 +114,8 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   };
 
   const handleSavePassword = () => {
-    const trimmedPassword = newPassword.trim();
-    const trimmedConfirm = confirmPassword.trim();
+    const trimmedPassword = (newPassword || '').trim();
+    const trimmedConfirm = (confirmPassword || '').trim();
 
     if (trimmedPassword.length < 6) {
       setPasswordError('Password must be at least 6 characters long.');
@@ -131,7 +131,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   };
 
   const executePasswordUpdate = async () => {
-    const trimmedPassword = newPassword.trim();
+    const trimmedPassword = (newPassword || '').trim();
     setIsSubmitting(true);
     setPasswordError(null);
     setPasswordSuccess(null);
@@ -166,7 +166,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   };
 
   const handleSavePhone = async () => {
-    if (newPhone.trim().length < 5) {
+    if ((newPhone || '').trim().length < 5) {
       setError('Phone number must be at least 5 characters long.');
       return;
     }
@@ -192,7 +192,7 @@ export default function ProfileSection({ userId }: ProfileSectionProps) {
   };
 
   const handleSaveAddress = async () => {
-    if (newAddress.trim().length < 5) {
+    if ((newAddress || '').trim().length < 5) {
       setError('Address must be at least 5 characters long.');
       return;
     }

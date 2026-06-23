@@ -716,7 +716,7 @@ export default function AdminDashboard() {
         amenities: propertyForm.amenities,
         agency_fee: propertyForm.agency_fee ? parseFloat(propertyForm.agency_fee) : null,
         inspection_fee: propertyForm.inspection_fee ? parseFloat(propertyForm.inspection_fee) : null,
-        video_url: propertyForm.video_url.trim() || null,
+        video_url: (propertyForm.video_url || '').trim() || null,
         status: 'approved'
       };
 
