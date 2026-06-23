@@ -37,57 +37,110 @@ const compressImage = async (file: File): Promise<Blob | File> => {
   if (!file.type.startsWith('image/')) return file;
   
   return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        const MAX_DIM = 1200;
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(file);
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
-              resolve(compressedFile);
-            } else {
+    // 5-second safety timeout to prevent hanging the submission flow on slow browsers
+    const timeout = setTimeout(() => {
+      console.warn('Image compression timed out, falling back to original file.');
+      resolve(file);
+    }, 5000);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+              
+              const MAX_DIM = 1024; // Better for mobile memory
+              if (width > MAX_DIM || height > MAX_DIM) {
+                if (width > height) {
+                  height = Math.round((height * MAX_DIM) / width);
+                  width = MAX_DIM;
+                } else {
+                  width = Math.round((width * MAX_DIM) / height);
+                  height = MAX_DIM;
+                }
+              }
+              
+              canvas.width = width;
+              canvas.height = height;
+              
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                clearTimeout(timeout);
+                resolve(file);
+                return;
+              }
+              
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              // Standard high-compatibility toBlob
+              if (canvas.toBlob) {
+                canvas.toBlob(
+                  (blob) => {
+                    clearTimeout(timeout);
+                    if (blob) {
+                      const compressedFile = new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now(),
+                      });
+                      resolve(compressedFile);
+                    } else {
+                      resolve(file);
+                    }
+                  },
+                  'image/jpeg',
+                  0.75
+                );
+              } else {
+                // Fallback using toDataURL for restricted webviews
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                const arr = dataUrl.split(',');
+                const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                  u8arr[n] = bstr.charCodeAt(n);
+                }
+                const blob = new Blob([u8arr], { type: mime });
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                clearTimeout(timeout);
+                resolve(compressedFile);
+              }
+            } catch (innerErr) {
+              console.error('Error drawing image to canvas:', innerErr);
+              clearTimeout(timeout);
               resolve(file);
             }
-          },
-          'image/jpeg',
-          0.8
-        );
+          };
+          img.onerror = () => {
+            clearTimeout(timeout);
+            resolve(file);
+          };
+          img.src = e.target?.result as string;
+        } catch (imgErr) {
+          console.error('Error initializing Image onload:', imgErr);
+          clearTimeout(timeout);
+          resolve(file);
+        }
       };
-      img.onerror = () => resolve(file);
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => resolve(file);
-    reader.readAsDataURL(file);
+      reader.onerror = () => {
+        clearTimeout(timeout);
+        resolve(file);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('FileReader error:', err);
+      clearTimeout(timeout);
+      resolve(file);
+    }
   });
 };
 
@@ -565,8 +618,19 @@ export default function AgentDashboard() {
             .from('property-images')
             .upload(filePath, file, {
               cacheControl: '3600',
-              upsert: false
-            });
+              upsert: false,
+              contentType: file.type || 'image/jpeg',
+              onUploadProgress: (progress: any) => {
+                const loaded = progress.loaded || 0;
+                const total = progress.total || 1;
+                const filePercent = (loaded / total) * 100;
+                const overallPercent = Math.round(
+                  ((i + filePercent / 100) / totalFiles) * 100
+                );
+                // Keep progress under 100% until this upload step completes
+                setUploadProgress(Math.min(99, overallPercent));
+              }
+            } as any);
 
           if (uploadError) {
             console.error('Upload error:', uploadError);
@@ -580,7 +644,6 @@ export default function AgentDashboard() {
             finalImageUrls.push(publicUrl);
           }
           
-          // Update progress manually since Supabase v2 upload doesn't natively support onUploadProgress via fetch
           setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
         }
       }
