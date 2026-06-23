@@ -33,6 +33,64 @@ interface Property {
   video_url?: string;
 }
 
+const compressImage = async (file: File): Promise<Blob | File> => {
+  if (!file.type.startsWith('image/')) return file;
+  
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        const MAX_DIM = 1200;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file);
+            }
+          },
+          'image/jpeg',
+          0.8
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function AgentDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -486,9 +544,17 @@ export default function AgentDashboard() {
       if (filesToUpload.length > 0) {
         const totalFiles = filesToUpload.length;
         for (let i = 0; i < totalFiles; i++) {
-          const file = filesToUpload[i];
-          // Keep it simple as requested by user
-          setUploadStatus('Uploading new property...');
+          let file = filesToUpload[i];
+          
+          setUploadStatus(`Optimizing image ${i + 1}/${totalFiles}...`);
+          try {
+            const compressed = await compressImage(file);
+            file = compressed as File;
+          } catch (compressErr) {
+            console.warn('Image compression failed, uploading original:', compressErr);
+          }
+
+          setUploadStatus(`Uploading image ${i + 1}/${totalFiles}...`);
           
           const fileExt = file.name.split('.').pop() || 'jpg';
           const randomId = Math.random().toString(36).substring(2, 10);
@@ -1987,6 +2053,14 @@ export default function AgentDashboard() {
               
               {/* Sticky mobile button container */}
               <div className="sticky bottom-0 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-4 bg-white shadow-[0_-10px_20px_rgba(0,0,0,0.05)] border-t border-gray-100 z-[70] mt-10">
+                {statusMessage && (
+                  <div className={cn(
+                    "p-4 rounded-xl text-sm font-bold mb-4",
+                    statusMessage.type === 'success' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                  )}>
+                    {statusMessage.text}
+                  </div>
+                )}
                 <button 
                   form="property-upload-form"
                   type="submit" 
