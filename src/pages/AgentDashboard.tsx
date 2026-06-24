@@ -83,11 +83,9 @@ const compressImage = async (file: File): Promise<Blob | File> => {
                   (blob) => {
                     clearTimeout(timeout);
                     if (blob) {
-                      const compressedFile = new File([blob], file.name, {
-                        type: 'image/jpeg',
-                        lastModified: Date.now(),
-                      });
-                      resolve(compressedFile);
+                      // Return raw Blob instead of programmatically constructing a File object.
+                      // This avoids the critical WebKit/Safari fetch stream bug where uploading custom File objects hangs on mobile.
+                      resolve(blob);
                     } else {
                       resolve(file);
                     }
@@ -107,12 +105,9 @@ const compressImage = async (file: File): Promise<Blob | File> => {
                   u8arr[n] = bstr.charCodeAt(n);
                 }
                 const blob = new Blob([u8arr], { type: mime });
-                const compressedFile = new File([blob], file.name, {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                });
                 clearTimeout(timeout);
-                resolve(compressedFile);
+                // Return raw Blob instead of programmatically constructing a File object.
+                resolve(blob);
               }
             } catch (innerErr) {
               console.error('Error drawing image to canvas:', innerErr);
@@ -597,38 +592,44 @@ export default function AgentDashboard() {
       if (filesToUpload.length > 0) {
         const totalFiles = filesToUpload.length;
         for (let i = 0; i < totalFiles; i++) {
-          let file = filesToUpload[i];
+          const originalFile = filesToUpload[i];
+          let fileToUpload: Blob | File = originalFile;
           
           setUploadStatus(`Optimizing image ${i + 1}/${totalFiles}...`);
           try {
-            const compressed = await compressImage(file);
-            file = compressed as File;
+            const compressed = await compressImage(originalFile);
+            fileToUpload = compressed;
           } catch (compressErr) {
             console.warn('Image compression failed, uploading original:', compressErr);
           }
 
           setUploadStatus(`Uploading image ${i + 1}/${totalFiles}...`);
           
-          const fileExt = file.name.split('.').pop() || 'jpg';
+          // Use originalFile to extract metadata since fileToUpload can be a raw Blob (which does not have a name property)
+          const fileExt = originalFile.name.split('.').pop() || 'jpg';
           const randomId = Math.random().toString(36).substring(2, 10);
           const fileName = `${randomId}.${fileExt}`;
           const filePath = `${user.id}/${Date.now()}-${fileName}`;
 
           const { error: uploadError, data: uploadData } = await supabase.storage
             .from('property-images')
-            .upload(filePath, file, {
+            .upload(filePath, fileToUpload, {
               cacheControl: '3600',
               upsert: false,
-              contentType: file.type || 'image/jpeg',
+              contentType: (fileToUpload as any).type || 'image/jpeg',
               onUploadProgress: (progress: any) => {
-                const loaded = progress.loaded || 0;
-                const total = progress.total || 1;
-                const filePercent = (loaded / total) * 100;
-                const overallPercent = Math.round(
-                  ((i + filePercent / 100) / totalFiles) * 100
-                );
-                // Keep progress under 100% until this upload step completes
-                setUploadProgress(Math.min(99, overallPercent));
+                try {
+                  const loaded = progress.loaded || 0;
+                  const total = progress.total || 1;
+                  const filePercent = (loaded / total) * 100;
+                  const overallPercent = Math.round(
+                    ((i + filePercent / 100) / totalFiles) * 100
+                  );
+                  // Keep progress under 100% until this upload step completes
+                  setUploadProgress(Math.min(99, overallPercent));
+                } catch (progressErr) {
+                  console.warn('Error inside onUploadProgress:', progressErr);
+                }
               }
             } as any);
 
