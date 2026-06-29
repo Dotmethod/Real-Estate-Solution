@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { chatService } from '../lib/chatService';
-import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, Mail, Map as MapIcon, ExternalLink, Video, Play, Loader2 } from 'lucide-react';
+import { Bed, Bath, Square, MapPin, Phone, User, ShieldCheck, ArrowLeft, Calendar, Share2, Heart, MessageSquare, MessageCircle, Mail, Map as MapIcon, ExternalLink, Video, Play, Loader2 } from 'lucide-react';
 import { formatPrice, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -36,6 +36,19 @@ export default function PropertyDetail() {
   const [isGeocoding, setIsGeocoding] = React.useState(false);
   const [isStartingChat, setIsStartingChat] = React.useState(false);
   const navigate = useNavigate();
+
+  const whatsappUrl = React.useMemo(() => {
+    const agent = property?.agent || null;
+    if (!agent?.phone) return '';
+    let cleanPhone = agent.phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+      cleanPhone = '234' + cleanPhone.substring(1);
+    } else if (!cleanPhone.startsWith('234') && cleanPhone.length === 10) {
+      cleanPhone = '234' + cleanPhone;
+    }
+    const text = `Hello, I'm interested in your property: "${property?.title || ''}" listed on the platform.\n\nLink: ${window.location.href}`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+  }, [property?.agent?.phone, property?.title]);
 
   React.useEffect(() => {
     const geocodeAddress = async () => {
@@ -633,6 +646,18 @@ export default function PropertyDetail() {
                         )}
                         {isStartingChat ? 'Connecting...' : 'Send Message'}
                       </button>
+
+                      {whatsappUrl && (
+                        <a 
+                          href={whatsappUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full py-4 md:py-5 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-100 flex items-center justify-center gap-3"
+                        >
+                          <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
+                          Chat with Agent
+                        </a>
+                      )}
                       <button className="w-full py-4 md:py-5 bg-white text-blue-600 border-2 border-blue-600 rounded-xl md:rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
                         <Calendar className="h-4 w-4 md:h-5 md:w-5" />
                         Schedule Tour
