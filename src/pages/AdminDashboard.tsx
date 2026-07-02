@@ -13,102 +13,102 @@ const compressImage = (file: File): Promise<Blob | File> => {
   if (!file.type.startsWith('image/')) return Promise.resolve(file);
   
   return new Promise((resolve) => {
-    // 5-second safety timeout to prevent hanging the submission flow on slow browsers
+    // 6-second safety timeout to prevent hanging the submission flow on slow browsers
     const timeout = setTimeout(() => {
       console.warn('Image compression timed out, falling back to original file.');
       resolve(file);
-    }, 5000);
+    }, 6000);
 
+    let objectUrl: string | null = null;
     try {
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      
+      img.onload = () => {
         try {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              let width = img.width;
-              let height = img.height;
-              
-              const MAX_DIM = 1024; // Better for mobile memory
-              if (width > MAX_DIM || height > MAX_DIM) {
-                if (width > height) {
-                  height = Math.round((height * MAX_DIM) / width);
-                  width = MAX_DIM;
-                } else {
-                  width = Math.round((width * MAX_DIM) / height);
-                  height = MAX_DIM;
-                }
-              }
-              
-              canvas.width = width;
-              canvas.height = height;
-              
-              const ctx = canvas.getContext('2d');
-              if (!ctx) {
-                clearTimeout(timeout);
-                resolve(file);
-                return;
-              }
-              
-              ctx.drawImage(img, 0, 0, width, height);
-              
-              // Standard high-compatibility toBlob
-              if (canvas.toBlob) {
-                canvas.toBlob(
-                  (blob) => {
-                    clearTimeout(timeout);
-                    if (blob) {
-                      // Return raw Blob instead of programmatically constructing a File object.
-                      // This avoids the critical WebKit/Safari fetch stream bug where uploading custom File objects hangs on mobile.
-                      resolve(blob);
-                    } else {
-                      resolve(file);
-                    }
-                  },
-                  'image/jpeg',
-                  0.75
-                );
-              } else {
-                // Fallback using toDataURL for restricted webviews
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
-                const arr = dataUrl.split(',');
-                const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
-                const bstr = atob(arr[1]);
-                let n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                while (n--) {
-                  u8arr[n] = bstr.charCodeAt(n);
-                }
-                const blob = new Blob([u8arr], { type: mime });
-                clearTimeout(timeout);
-                // Return raw Blob instead of programmatically constructing a File object.
-                resolve(blob);
-              }
-            } catch (innerErr) {
-              console.error('Error drawing image to canvas:', innerErr);
-              clearTimeout(timeout);
-              resolve(file);
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const MAX_DIM = 1024; // Better for mobile memory
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
             }
-          };
-          img.onerror = () => {
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
             clearTimeout(timeout);
             resolve(file);
-          };
-          img.src = e.target?.result as string;
-        } catch (imgErr) {
-          console.error('Error initializing Image onload:', imgErr);
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Standard high-compatibility toBlob
+          if (canvas.toBlob) {
+            canvas.toBlob(
+              (blob) => {
+                if (objectUrl) URL.revokeObjectURL(objectUrl);
+                clearTimeout(timeout);
+                if (blob) {
+                  // Return raw Blob instead of programmatically constructing a File object.
+                  // This avoids the critical WebKit/Safari fetch stream bug where uploading custom File objects hangs on mobile.
+                  resolve(blob);
+                } else {
+                  resolve(file);
+                }
+              },
+              'image/jpeg',
+              0.75
+            );
+          } else {
+            // Fallback using toDataURL for restricted webviews
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            clearTimeout(timeout);
+
+            const arr = dataUrl.split(',');
+            const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+            const bstr = atob(arr[arr.length - 1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            const blob = new Blob([u8arr], { type: mime });
+            // Return raw Blob instead of programmatically constructing a File object.
+            resolve(blob);
+          }
+        } catch (innerErr) {
+          console.error('Error drawing image to canvas:', innerErr);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
           clearTimeout(timeout);
           resolve(file);
         }
       };
-      reader.onerror = () => {
+
+      img.onerror = () => {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         clearTimeout(timeout);
         resolve(file);
       };
-      reader.readAsDataURL(file);
+
+      img.src = objectUrl;
     } catch (err) {
       console.error('FileReader error:', err);
+      if (objectUrl) {
+        try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+      }
       clearTimeout(timeout);
       resolve(file);
     }
